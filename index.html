@@ -23,78 +23,71 @@
 
 <main class="page">
   <h1 class="page-title">Panel general</h1>
-  <p class="page-subtitle" id="subtitle">Cargando datos…</p>
-
+  <p class="page-subtitle" id="subtitle">Matrimonio Riedel Palma &amp; Solís Soto · 2026</p>
   <div id="root"><div class="loading"><div class="spinner"></div> Cargando…</div></div>
 </main>
 
 <script type="module">
-import { apiFetch, fmt, initTheme, highlightNav, showError, FAMILIA } from './api.js';
+import { apiFetch, fmt, initTheme, highlightNav, showError } from './api.js';
 
 initTheme();
 highlightNav();
+
+// ── Datos financieros (actualizados manualmente cuando cambia un contrato) ──
+const NETO = { r: 27352541, c: 11760340, s: 9207063 };
+const NETO_TOTAL = NETO.r + NETO.c + NETO.s; // 48319944
 
 const root = document.getElementById('root');
 
 async function render() {
   try {
-    const { gastos: d, pagos } = await apiFetch('all');
-    const t = d.totals;
+    const pagos = await apiFetch('pagos');
 
-    // Pagado por familia desde Pagos tab
     const pagado = { r: 0, c: 0, s: 0 };
     (pagos || []).forEach(p => {
-      const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
+      const fam = p.familia;
+      const k = fam === 'Riedel Palma' ? 'r' : fam === 'Chico' ? 'c' : 's';
       pagado[k] += Number(p.monto) || 0;
     });
-    pagado.t = pagado.r + pagado.c + pagado.s;
+    const pagadoTotal = pagado.r + pagado.c + pagado.s;
 
-    const pendiente = {
-      r: Math.max(0, t.rn - pagado.r),
-      c: Math.max(0, t.cn - pagado.c),
-      s: Math.max(0, t.sn - pagado.s),
+    const pend = {
+      r: Math.max(0, NETO.r - pagado.r),
+      c: Math.max(0, NETO.c - pagado.c),
+      s: Math.max(0, NETO.s - pagado.s),
     };
-
-    document.getElementById('subtitle').textContent =
-      `Total bruto $${fmt(t.tb)} · neto $${fmt(t.tn)} · pagado $${fmt(pagado.t)}`;
+    const pendTotal = pend.r + pend.c + pend.s;
+    const pct = Math.min(100, Math.round(pagadoTotal / NETO_TOTAL * 100));
 
     root.innerHTML = `
-      <!-- Totales -->
       <div class="section-label">Totales generales</div>
       <div class="stat-grid" style="margin-bottom:28px">
         <div class="stat-tile t">
-          <div class="label">Total bruto</div>
-          <div class="value">$${fmt(t.tb)}</div>
-          <div class="sub">con IVA</div>
-        </div>
-        <div class="stat-tile t">
           <div class="label">Total neto</div>
-          <div class="value">$${fmt(t.tn)}</div>
+          <div class="value">$${fmt(NETO_TOTAL)}</div>
           <div class="sub">sin IVA</div>
         </div>
         <div class="stat-tile">
           <div class="label">Pagado</div>
-          <div class="value">$${fmt(pagado.t)}</div>
-          <div class="sub">${Math.round(pagado.t / t.tn * 100)}% del neto</div>
-          <div class="progress-wrap"><div class="progress-track"><div class="progress-fill" style="width:${Math.min(100,pagado.t/t.tn*100)}%"></div></div></div>
+          <div class="value">$${fmt(pagadoTotal)}</div>
+          <div class="sub">${pct}% del total</div>
+          <div class="progress-wrap"><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></div>
         </div>
         <div class="stat-tile">
-          <div class="label">Por pagar (neto)</div>
-          <div class="value">$${fmt(pendiente.r + pendiente.c + pendiente.s)}</div>
+          <div class="label">Por pagar</div>
+          <div class="value">$${fmt(pendTotal)}</div>
           <div class="sub">entre las 3 familias</div>
         </div>
       </div>
 
-      <!-- Por familia -->
-      <div class="section-label">Resumen por familia</div>
+      <div class="section-label">Por familia</div>
       <div class="stat-grid" style="margin-bottom:28px">
-        ${familiaCard('r','Riedel Palma',t.rn,pagado.r,pendiente.r)}
-        ${familiaCard('c','Chico',t.cn,pagado.c,pendiente.c)}
-        ${familiaCard('s','Solís Soto',t.sn,pagado.s,pendiente.s)}
+        ${familiaCard('r','Riedel Palma',NETO.r,pagado.r,pend.r)}
+        ${familiaCard('c','Chico',NETO.c,pagado.c,pend.c)}
+        ${familiaCard('s','Solís Soto',NETO.s,pagado.s,pend.s)}
       </div>
 
-      <!-- Últimos pagos -->
-      <div class="section-label">Últimos pagos registrados</div>
+      <div class="section-label">Últimos pagos</div>
       <div class="card">
         ${renderPagos(pagos)}
       </div>
@@ -104,32 +97,37 @@ async function render() {
   }
 }
 
-function familiaCard(key, label, total, pagado, pendiente) {
+function familiaCard(k, label, total, pagado, pend) {
   const pct = Math.min(100, Math.round(pagado / total * 100));
-  return `<div class="stat-tile ${key}">
+  return `<div class="stat-tile ${k}">
     <div class="label">${label}</div>
     <div class="value">$${fmt(total)}</div>
-    <div class="sub">pagado $${fmt(pagado)} · pendiente $${fmt(pendiente)}</div>
-    <div class="progress-wrap"><div class="progress-track"><div class="progress-fill" style="width:${pct}%;background:var(--${key}-color)"></div></div></div>
+    <div class="sub">pagado $${fmt(pagado)} · pendiente $${fmt(pend)}</div>
+    <div class="progress-wrap"><div class="progress-track">
+      <div class="progress-fill" style="width:${pct}%;background:var(--${k}-color)"></div>
+    </div></div>
   </div>`;
 }
 
 function renderPagos(pagos) {
-  if (!pagos || !pagos.length) return '<p style="color:var(--fg-muted);font-size:13px;padding:8px 0">Aún no hay pagos registrados. <a href="pagos.html" style="color:var(--accent-fg)">Registrar uno →</a></p>';
+  if (!pagos || !pagos.length) {
+    return '<p style="color:var(--fg-muted);font-size:13px;padding:8px 0">Aún no hay pagos. <a href="pagos.html" style="color:var(--accent-fg)">Registrar uno →</a></p>';
+  }
   const recientes = [...pagos].reverse().slice(0, 6);
   return `<div class="table-wrap"><table>
     <thead><tr><th>Fecha</th><th>Familia</th><th>Concepto</th><th class="num">Monto</th><th>Comprobante</th></tr></thead>
-    <tbody>
-      ${recientes.map(p => `<tr>
+    <tbody>${recientes.map(p => {
+      const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
+      return `<tr>
         <td>${p.fecha}</td>
-        <td><span class="badge badge-${p.familia==='Riedel Palma'?'r':p.familia==='Chico'?'c':'s'}">${p.familia}</span></td>
+        <td><span class="badge badge-${k}">${p.familia}</span></td>
         <td>${p.concepto}</td>
         <td class="num">$${fmt(p.monto)}</td>
         <td>${p.comprobante ? `<a href="${p.comprobante}" target="_blank" style="color:var(--accent-fg);font-size:12px">Ver →</a>` : '—'}</td>
-      </tr>`).join('')}
-    </tbody>
+      </tr>`;
+    }).join('')}</tbody>
   </table></div>
-  <p style="text-align:right;margin-top:10px"><a href="pagos.html" style="color:var(--accent-fg);font-size:13px">Ver todos los pagos →</a></p>`;
+  <p style="text-align:right;margin-top:10px"><a href="pagos.html" style="color:var(--accent-fg);font-size:13px">Ver todos →</a></p>`;
 }
 
 render();
