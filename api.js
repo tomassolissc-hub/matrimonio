@@ -3,7 +3,7 @@
 // Reemplaza GAS_URL con la URL del web app desplegado
 // ============================================================
 
-const GAS_URL = 'TU_URL_AQUI'; // <-- reemplazar tras deploy del Apps Script
+const GAS_URL = 'tomassolissc-hub.github.io/matrimonio/'; // <-- reemplazar tras deploy del Apps Script
 
 // ── Formateo ─────────────────────────────────────────────────
 export function fmt(n) {
