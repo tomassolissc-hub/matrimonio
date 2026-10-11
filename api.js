@@ -3,7 +3,7 @@
 // Reemplaza GAS_URL con la URL del web app desplegado
 // ============================================================
 
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzyJN7vErV51GaWD58pKrIXI4VIv2IbNOniUBqIYE53-t8aq7cbH07-pdpv8bhxjDCW3w/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbw6SkKsW3iWrvtb8VLtf8li59af36nXxreQeSfKzG5jyUwLbDh0O0u2RmOl1BRFZc3kLg/exec';
 
 // ── Formateo ─────────────────────────────────────────────────
 export function fmt(n) {
