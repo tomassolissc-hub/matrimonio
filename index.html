@@ -23,12 +23,12 @@
 
 <main class="page">
   <h1 class="page-title">Panel general</h1>
-  <p class="page-subtitle" id="subtitle">Matrimonio Riedel Palma &amp; Solís Soto · 2026</p>
-  <div id="root"><div class="loading"><div class="spinner"></div> Cargando…</div></div>
+  <p class="page-subtitle">Matrimonio Riedel Palma &amp; Solís Soto · 2026</p>
+  <div id="root"></div>
 </main>
 
 <script type="module">
-import { apiFetch, fmt, initTheme, highlightNav, showError } from './api.js';
+import { apiFetch, fmt, initTheme, highlightNav } from './api.js';
 
 initTheme();
 highlightNav();
@@ -39,66 +39,8 @@ const NETO_TOTAL = NETO.r + NETO.c + NETO.s; // 48319944
 
 const root = document.getElementById('root');
 
-async function render() {
-  try {
-    const pagos = await apiFetch('pagos');
-
-    const pagado = { r: 0, c: 0, s: 0 };
-    (pagos || []).forEach(p => {
-      const fam = p.familia;
-      const k = fam === 'Riedel Palma' ? 'r' : fam === 'Chico' ? 'c' : 's';
-      pagado[k] += Number(p.monto) || 0;
-    });
-    const pagadoTotal = pagado.r + pagado.c + pagado.s;
-
-    const pend = {
-      r: Math.max(0, NETO.r - pagado.r),
-      c: Math.max(0, NETO.c - pagado.c),
-      s: Math.max(0, NETO.s - pagado.s),
-    };
-    const pendTotal = pend.r + pend.c + pend.s;
-    const pct = Math.min(100, Math.round(pagadoTotal / NETO_TOTAL * 100));
-
-    root.innerHTML = `
-      <div class="section-label">Totales generales</div>
-      <div class="stat-grid" style="margin-bottom:28px">
-        <div class="stat-tile t">
-          <div class="label">Total neto</div>
-          <div class="value">$${fmt(NETO_TOTAL)}</div>
-          <div class="sub">sin IVA</div>
-        </div>
-        <div class="stat-tile">
-          <div class="label">Pagado</div>
-          <div class="value">$${fmt(pagadoTotal)}</div>
-          <div class="sub">${pct}% del total</div>
-          <div class="progress-wrap"><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></div>
-        </div>
-        <div class="stat-tile">
-          <div class="label">Por pagar</div>
-          <div class="value">$${fmt(pendTotal)}</div>
-          <div class="sub">entre las 3 familias</div>
-        </div>
-      </div>
-
-      <div class="section-label">Por familia</div>
-      <div class="stat-grid" style="margin-bottom:28px">
-        ${familiaCard('r','Riedel Palma',NETO.r,pagado.r,pend.r)}
-        ${familiaCard('c','Chico',NETO.c,pagado.c,pend.c)}
-        ${familiaCard('s','Solís Soto',NETO.s,pagado.s,pend.s)}
-      </div>
-
-      <div class="section-label">Últimos pagos</div>
-      <div class="card">
-        ${renderPagos(pagos)}
-      </div>
-    `;
-  } catch(e) {
-    showError(root, `No se pudo cargar: ${e.message}`);
-  }
-}
-
 function familiaCard(k, label, total, pagado, pend) {
-  const pct = Math.min(100, Math.round(pagado / total * 100));
+  const pct = total > 0 ? Math.min(100, Math.round(pagado / total * 100)) : 0;
   return `<div class="stat-tile ${k}">
     <div class="label">${label}</div>
     <div class="value">$${fmt(total)}</div>
@@ -128,6 +70,78 @@ function renderPagos(pagos) {
     }).join('')}</tbody>
   </table></div>
   <p style="text-align:right;margin-top:10px"><a href="pagos.html" style="color:var(--accent-fg);font-size:13px">Ver todos →</a></p>`;
+}
+
+function renderPanel(pagos) {
+  const pagado = { r: 0, c: 0, s: 0 };
+  (pagos || []).forEach(p => {
+    const fam = p.familia;
+    const k = fam === 'Riedel Palma' ? 'r' : fam === 'Chico' ? 'c' : 's';
+    pagado[k] += Number(p.monto) || 0;
+  });
+  const pagadoTotal = pagado.r + pagado.c + pagado.s;
+
+  const pend = {
+    r: Math.max(0, NETO.r - pagado.r),
+    c: Math.max(0, NETO.c - pagado.c),
+    s: Math.max(0, NETO.s - pagado.s),
+  };
+  const pendTotal = pend.r + pend.c + pend.s;
+  const pct = NETO_TOTAL > 0 ? Math.min(100, Math.round(pagadoTotal / NETO_TOTAL * 100)) : 0;
+
+  root.innerHTML = `
+    <div class="section-label">Totales generales</div>
+    <div class="stat-grid" style="margin-bottom:28px">
+      <div class="stat-tile t">
+        <div class="label">Total neto</div>
+        <div class="value">$${fmt(NETO_TOTAL)}</div>
+        <div class="sub">sin IVA</div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">Pagado</div>
+        <div class="value">$${fmt(pagadoTotal)}</div>
+        <div class="sub">${pct}% del total</div>
+        <div class="progress-wrap"><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">Por pagar</div>
+        <div class="value">$${fmt(pendTotal)}</div>
+        <div class="sub">entre las 3 familias</div>
+      </div>
+    </div>
+
+    <div class="section-label">Por familia</div>
+    <div class="stat-grid" style="margin-bottom:28px">
+      ${familiaCard('r','Riedel Palma',NETO.r,pagado.r,pend.r)}
+      ${familiaCard('c','Chico',NETO.c,pagado.c,pend.c)}
+      ${familiaCard('s','Solís Soto',NETO.s,pagado.s,pend.s)}
+    </div>
+
+    <div class="section-label">Últimos pagos</div>
+    <div class="card" id="pagos-card">
+      ${pagos.length === 0
+        ? '<div class="loading"><div class="spinner"></div> Cargando pagos…</div>'
+        : renderPagos(pagos)}
+    </div>
+  `;
+}
+
+async function render() {
+  // Mostrar datos hardcodeados inmediatamente (sin esperar fetch)
+  renderPanel([]);
+
+  // Intentar cargar pagos en segundo plano
+  try {
+    const pagos = await apiFetch('pagos');
+    renderPanel(pagos || []);
+  } catch(e) {
+    const card = document.getElementById('pagos-card');
+    if (card) {
+      card.innerHTML = `<p style="color:var(--fg-muted);font-size:13px;padding:8px 0">
+        No se pudieron cargar los pagos. <a href="pagos.html" style="color:var(--accent-fg)">Ir a pagos →</a>
+      </p>`;
+    }
+  }
 }
 
 render();
