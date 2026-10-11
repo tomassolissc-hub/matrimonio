@@ -55,10 +55,10 @@ function renderPagos(pagos) {
   if (!pagos || !pagos.length) {
     return '<p style="color:var(--fg-muted);font-size:13px;padding:8px 0">Aún no hay pagos. <a href="pagos.html" style="color:var(--accent-fg)">Registrar uno →</a></p>';
   }
-  const recientes = [...pagos].reverse().slice(0, 6);
+  const todos = [...pagos].reverse();
   return `<div class="table-wrap"><table>
     <thead><tr><th>Fecha</th><th>Familia</th><th>Concepto</th><th class="num">Monto</th><th>Comprobante</th></tr></thead>
-    <tbody>${recientes.map(p => {
+    <tbody>${todos.map(p => {
       const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
       return `<tr>
         <td>${p.fecha}</td>
@@ -69,7 +69,7 @@ function renderPagos(pagos) {
       </tr>`;
     }).join('')}</tbody>
   </table></div>
-  <p style="text-align:right;margin-top:10px"><a href="pagos.html" style="color:var(--accent-fg);font-size:13px">Ver todos →</a></p>`;
+  <p style="text-align:right;margin-top:10px"><a href="pagos.html" style="color:var(--accent-fg);font-size:13px">Registrar pago →</a></p>`;
 }
 
 function renderPanel(pagos) {
@@ -117,7 +117,43 @@ function renderPanel(pagos) {
       ${familiaCard('s','Solís Soto',NETO.s,pagado.s,pend.s)}
     </div>
 
-    <div class="section-label">Últimos pagos</div>
+    <div class="section-label">Distribución gastos generales</div>
+    <div class="card" style="margin-bottom:28px">
+      <p style="font-size:13px;color:var(--fg-muted);margin:0 0 16px">
+        Para ítems de uso común (DJ, Fotógrafo, Videógrafo, Flores, Pista de Baile, Saxofonista, Comida extra, Extras). La Banquetera se divide según los invitados de cada familia.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="width:110px;font-size:13px;font-weight:500;color:var(--r-color)">Riedel Palma</span>
+          <div style="flex:1;background:var(--border);border-radius:99px;overflow:hidden;height:20px">
+            <div style="width:50%;background:var(--r-color);height:100%;border-radius:99px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px">
+              <span style="font-size:11px;font-weight:700;color:#fff">50%</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="width:110px;font-size:13px;font-weight:500;color:var(--c-color)">Chico</span>
+          <div style="flex:1;background:var(--border);border-radius:99px;overflow:hidden;height:20px">
+            <div style="width:25%;background:var(--c-color);height:100%;border-radius:99px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px">
+              <span style="font-size:11px;font-weight:700;color:#fff">25%</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="width:110px;font-size:13px;font-weight:500;color:var(--s-color)">Solís Soto</span>
+          <div style="flex:1;background:var(--border);border-radius:99px;overflow:hidden;height:20px">
+            <div style="width:25%;background:var(--s-color);height:100%;border-radius:99px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px">
+              <span style="font-size:11px;font-weight:700;color:#fff">25%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--fg-faint);margin:14px 0 0">
+        🍽️ <strong>Banquetera:</strong> distribución variable según invitados por familia · <a href="gastos.html" style="color:var(--accent-fg)">Ver detalle →</a>
+      </p>
+    </div>
+
+    <div class="section-label">Pagos registrados</div>
     <div class="card" id="pagos-card">
       ${pagos.length === 0
         ? '<div class="loading"><div class="spinner"></div> Cargando pagos…</div>'
