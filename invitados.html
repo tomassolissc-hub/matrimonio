@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Invitados — Matrimonio 2026</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="site-nav-inner">
+    <a class="site-nav-brand" href="index.html">💍 Matrimonio 2026</a>
+    <ul class="site-nav-links">
+      <li><a href="index.html">Panel</a></li>
+      <li><a href="gastos.html">Gastos</a></li>
+      <li><a href="invitados.html">Invitados</a></li>
+      <li><a href="pagos.html">Pagos</a></li>
+    </ul>
+    <button class="theme-toggle" id="theme-toggle" aria-label="Cambiar tema">🌙</button>
+  </div>
+</nav>
+
+<main class="page">
+  <h1 class="page-title">Lista de invitados</h1>
+  <p class="page-subtitle" id="subtitle">Cargando…</p>
+
+  <div class="tabs" id="tabs"></div>
+  <div id="subfilters" style="margin-bottom:12px"></div>
+  <div class="search-wrap">
+    <input class="search-input" id="search" type="search" placeholder="Buscar invitado…" autocomplete="off">
+  </div>
+  <div id="root"><div class="loading"><div class="spinner"></div> Cargando…</div></div>
+</main>
+
+<script type="module">
+import { apiFetch, initTheme, highlightNav, showError } from './js/api.js';
+
+initTheme();
+highlightNav();
+
+let guests = null;
+let current = 'riedel';
+let subfilter = 'all';
+
+const SUBFILTERS = {
+  riedel: ['Todos', 'Anto', 'Riedel Palma'],
+  chico:  null,
+  solis:  ['Todos', 'Solís', 'Soto'],
+};
+const LABELS = { riedel: 'Riedel Palma', chico: 'Chico', solis: 'Solís Soto' };
+const BADGE  = { riedel: 'badge-r', chico: 'badge-c', solis: 'badge-s' };
+
+const root     = document.getElementById('root');
+const tabsEl   = document.getElementById('tabs');
+const subEl    = document.getElementById('subfilters');
+const searchEl = document.getElementById('search');
+
+async function load() {
+  try {
+    guests = await apiFetch('guests');
+    renderTabs();
+    renderSubfilters();
+    renderGuests();
+  } catch(e) {
+    showError(root, e.message);
+  }
+}
+
+function renderTabs() {
+  tabsEl.innerHTML = ['riedel','chico','solis'].map(k => `
+    <button class="tab-btn ${k === current ? 'active' : ''}" onclick="setFamily('${k}')">
+      ${LABELS[k]} <span style="font-size:11px;opacity:.6">(${(guests[k]||[]).length})</span>
+    </button>
+  `).join('');
+}
+
+function renderSubfilters() {
+  const sf = SUBFILTERS[current];
+  if (!sf) { subEl.innerHTML = ''; return; }
+  subEl.innerHTML = `<div class="tabs" style="border:none;margin:0;gap:6px">
+    ${sf.map(s => `
+      <button class="tab-btn ${(s==='Todos'?'all':s)===subfilter?'active':''}"
+              onclick="setSub('${s==='Todos'?'all':s}')"
+              style="padding:6px 12px;font-size:12px">
+        ${s}
+      </button>`).join('')}
+  </div>`;
+}
+
+function renderGuests() {
+  const q   = searchEl.value.trim().toLowerCase();
+  const all = guests[current] || [];
+  let list  = subfilter === 'all' ? all : all.filter(g => (typeof g==='object'?g.g:g) === subfilter);
+  if (q)   list = list.filter(g => (typeof g==='object'?g.n:g).toLowerCase().includes(q));
+
+  const count  = all.length;
+  const shown  = list.length;
+  const badge  = BADGE[current];
+
+  document.getElementById('subtitle').textContent =
+    `${count} invitados${q || subfilter!=='all' ? ` · mostrando ${shown}` : ''}`;
+
+  if (!list.length) {
+    root.innerHTML = `<p style="color:var(--fg-muted);padding:20px 0;font-size:13px">Sin resultados para "${q || subfilter}".</p>`;
+    return;
+  }
+
+  root.innerHTML = `<div class="guest-grid">
+    ${list.map(g => {
+      const name = typeof g === 'object' ? g.n : g;
+      const tag  = typeof g === 'object' && g.g ? g.g : '';
+      return `<div class="guest-item">
+        <span>${name}</span>
+        ${tag ? `<span class="guest-tag">${tag}</span>` : ''}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+window.setFamily = (k) => {
+  current = k;
+  subfilter = 'all';
+  searchEl.value = '';
+  renderTabs();
+  renderSubfilters();
+  renderGuests();
+};
+window.setSub = (s) => {
+  subfilter = s;
+  renderSubfilters();
+  renderGuests();
+};
+searchEl.addEventListener('input', renderGuests);
+
+load();
+</script>
+</body>
+</html>

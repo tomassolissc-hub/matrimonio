@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gastos — Matrimonio 2026</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="site-nav-inner">
+    <a class="site-nav-brand" href="index.html">💍 Matrimonio 2026</a>
+    <ul class="site-nav-links">
+      <li><a href="index.html">Panel</a></li>
+      <li><a href="gastos.html">Gastos</a></li>
+      <li><a href="invitados.html">Invitados</a></li>
+      <li><a href="pagos.html">Pagos</a></li>
+    </ul>
+    <button class="theme-toggle" id="theme-toggle" aria-label="Cambiar tema">🌙</button>
+  </div>
+</nav>
+
+<main class="page">
+  <h1 class="page-title">Gastos detallados</h1>
+  <p class="page-subtitle">Desglose por ítem y familia</p>
+
+  <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+    <button class="btn btn-primary" id="toggle-bruto-neto" onclick="toggleMode()">Ver bruto (con IVA)</button>
+    <button class="btn" id="btn-r" onclick="toggleFam('r')" style="border-color:var(--r-color);color:var(--r-color)">Riedel Palma</button>
+    <button class="btn" id="btn-c" onclick="toggleFam('c')" style="border-color:var(--c-color);color:var(--c-color)">Chico</button>
+    <button class="btn" id="btn-s" onclick="toggleFam('s')" style="border-color:var(--s-color);color:var(--s-color)">Solís Soto</button>
+  </div>
+
+  <div id="root"><div class="loading"><div class="spinner"></div> Cargando…</div></div>
+</main>
+
+<script type="module">
+import { apiFetch, fmt, initTheme, highlightNav, showError } from './js/api.js';
+
+initTheme();
+highlightNav();
+
+let mode = 'neto';
+let vis = { r: true, c: true, s: true };
+let gastos = null;
+
+window.toggleMode = () => {
+  mode = mode === 'neto' ? 'bruto' : 'neto';
+  document.getElementById('toggle-bruto-neto').textContent =
+    mode === 'neto' ? 'Ver bruto (con IVA)' : 'Ver neto (sin IVA)';
+  if (gastos) renderTable();
+};
+
+window.toggleFam = (k) => {
+  vis[k] = !vis[k];
+  const btn = document.getElementById(`btn-${k}`);
+  btn.style.opacity = vis[k] ? '1' : '0.4';
+  if (gastos) renderTable();
+};
+
+const root = document.getElementById('root');
+
+async function load() {
+  try {
+    gastos = await apiFetch('gastos');
+    renderTable();
+  } catch(e) {
+    showError(root, e.message);
+  }
+}
+
+function renderTable() {
+  const m = mode;
+  const { items, totals: t } = gastos;
+
+  const cols = [];
+  if (vis.r) cols.push({ key: m === 'neto' ? 'rn' : 'rb', label: 'Riedel', cls: 'badge-r' });
+  if (vis.c) cols.push({ key: m === 'neto' ? 'cn' : 'cb', label: 'Chico',  cls: 'badge-c' });
+  if (vis.s) cols.push({ key: m === 'neto' ? 'sn' : 'sb', label: 'Solís',  cls: 'badge-s' });
+
+  const tn = m === 'neto' ? 'tn' : 'tb';
+  const pr = 'pr', pc = 'pc', ps = 'ps';
+
+  root.innerHTML = `
+    <div class="card" style="padding:0">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Ítem</th>
+              ${cols.map(c => `<th class="num"><span class="badge ${c.cls}">${c.label}</span></th>`).join('')}
+              <th class="num">Total</th>
+              <th class="num">Pagado (R)</th>
+              <th class="num">Pagado (C)</th>
+              <th class="num">Pagado (S)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(row => `<tr>
+              <td><strong>${row.item}</strong></td>
+              ${cols.map(c => `<td class="num">$${fmt(row[c.key])}</td>`).join('')}
+              <td class="num" style="font-weight:500">$${fmt(row[tn])}</td>
+              <td class="num" style="color:var(--r-color)">$${fmt(row.pr)}</td>
+              <td class="num" style="color:var(--c-color)">$${fmt(row.pc)}</td>
+              <td class="num" style="color:var(--s-color)">$${fmt(row.ps)}</td>
+            </tr>`).join('')}
+          </tbody>
+          <tfoot>
+            <tr style="font-weight:600;border-top:2px solid var(--border)">
+              <td>TOTAL</td>
+              ${cols.map(c => `<td class="num">$${fmt(t[c.key])}</td>`).join('')}
+              <td class="num">$${fmt(t[tn])}</td>
+              <td class="num" style="color:var(--r-color)">$${fmt(t.pr)}</td>
+              <td class="num" style="color:var(--c-color)">$${fmt(t.pc)}</td>
+              <td class="num" style="color:var(--s-color)">$${fmt(t.ps)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    <p style="margin-top:10px;font-size:12px;color:var(--fg-faint)">
+      Modo: <strong>${m === 'neto' ? 'Neto (sin IVA 9,5%)' : 'Bruto (con IVA 9,5%)'}</strong>
+    </p>
+  `;
+}
+
+load();
+</script>
+</body>
+</html>
