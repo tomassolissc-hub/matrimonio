@@ -23,109 +23,102 @@
 
 <main class="page">
   <h1 class="page-title">Gastos detallados</h1>
-  <p class="page-subtitle">Desglose por ítem y familia</p>
 
-  <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
-    <button class="btn btn-primary" id="toggle-bruto-neto" onclick="toggleMode()">Ver bruto (con IVA)</button>
-    <button class="btn" id="btn-r" onclick="toggleFam('r')" style="border-color:var(--r-color);color:var(--r-color)">Riedel Palma</button>
-    <button class="btn" id="btn-c" onclick="toggleFam('c')" style="border-color:var(--c-color);color:var(--c-color)">Chico</button>
-    <button class="btn" id="btn-s" onclick="toggleFam('s')" style="border-color:var(--s-color);color:var(--s-color)">Solís Soto</button>
+  <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center">
+    <button class="btn btn-primary" id="btn-mode" onclick="toggleMode()">Ver bruto (con IVA)</button>
+    <button class="btn" id="btn-r" onclick="toggleFam('r')">Riedel Palma</button>
+    <button class="btn" id="btn-c" onclick="toggleFam('c')">Chico</button>
+    <button class="btn" id="btn-s" onclick="toggleFam('s')">Solís Soto</button>
   </div>
 
-  <div id="root"><div class="loading"><div class="spinner"></div> Cargando…</div></div>
+  <div id="root"></div>
 </main>
 
 <script type="module">
-import { apiFetch, fmt, initTheme, highlightNav, showError } from './api.js';
-
+import { fmt, initTheme, highlightNav } from './api.js';
 initTheme();
 highlightNav();
 
+// ── Datos (mismos del artifact v12) ──────────────────────────
+const ITEMS = [
+  { item:'Centro de Eventos',  rb:3147581,  rn:2307481,  cb:2630838,  cn:2210788,  sb:480838,   sn:60788,   pr:2114095, pc:0,       ps:2150000 },
+  { item:'Banquetera',         rb:19803290, rn:17955060, cb:8182170,  cn:7472302,  sb:5748927,  sn:5120025, pr:1500000, pc:0,       ps:1500000 },
+  { item:'DJ',                 rb:1190000,  rn:1190000,  cb:595000,   cn:595000,   sb:595000,   sn:595000,  pr:0,       pc:0,       ps:0       },
+  { item:'Fotógrafo',          rb:1785000,  rn:1785000,  cb:892500,   cn:892500,   sb:892500,   sn:892500,  pr:0,       pc:0,       ps:0       },
+  { item:'Videógrafo',         rb:1190000,  rn:1190000,  cb:595000,   cn:595000,   sb:595000,   sn:595000,  pr:0,       pc:0,       ps:0       },
+  { item:'Maquilladora',       rb:0,        rn:0,        cb:0,        cn:0,        sb:725000,   sn:725000,  pr:0,       pc:0,       ps:0       },
+  { item:'Comida extra',       rb:476000,   rn:476000,   cb:238000,   cn:238000,   sb:238000,   sn:238000,  pr:0,       pc:0,       ps:0       },
+  { item:'Pista de Baile',     rb:654500,   rn:654500,   cb:327250,   cn:327250,   sb:327250,   sn:327250,  pr:0,       pc:0,       ps:0       },
+  { item:'Saxofonista',        rb:357000,   rn:357000,   cb:178500,   cn:178500,   sb:178500,   sn:178500,  pr:0,       pc:0,       ps:0       },
+  { item:'Flores',             rb:2380000,  rn:2380000,  cb:1190000,  cn:1190000,  sb:1190000,  sn:1190000, pr:962500,  pc:0,       ps:0       },
+  { item:'Extras',             rb:759125,   rn:757500,   cb:812688,   cn:811000,   sb:556688,   sn:505000,  pr:0,       pc:1949000, ps:0       },
+];
+
+const TOTALS = {
+  rb:31842496, rn:28852541, cb:15641946, cn:13310340, sb:11527703, sn:9207063,
+  tb:59012145, tn:51369944, pr:4576595,  pc:1949000,  ps:3650000,
+};
+
 let mode = 'neto';
-let vis = { r: true, c: true, s: true };
-let gastos = null;
+let vis  = { r:true, c:true, s:true };
 
 window.toggleMode = () => {
   mode = mode === 'neto' ? 'bruto' : 'neto';
-  document.getElementById('toggle-bruto-neto').textContent =
-    mode === 'neto' ? 'Ver bruto (con IVA)' : 'Ver neto (sin IVA)';
-  if (gastos) renderTable();
+  document.getElementById('btn-mode').textContent = mode === 'neto' ? 'Ver bruto (con IVA)' : 'Ver neto (sin IVA)';
+  renderTable();
 };
 
-window.toggleFam = (k) => {
+window.toggleFam = k => {
   vis[k] = !vis[k];
-  const btn = document.getElementById(`btn-${k}`);
-  btn.style.opacity = vis[k] ? '1' : '0.4';
-  if (gastos) renderTable();
+  document.getElementById(`btn-${k}`).style.opacity = vis[k] ? '1' : '0.4';
+  renderTable();
 };
-
-const root = document.getElementById('root');
-
-async function load() {
-  try {
-    gastos = await apiFetch('gastos');
-    renderTable();
-  } catch(e) {
-    showError(root, e.message);
-  }
-}
 
 function renderTable() {
   const m = mode;
-  const { items, totals: t } = gastos;
-
   const cols = [];
-  if (vis.r) cols.push({ key: m === 'neto' ? 'rn' : 'rb', label: 'Riedel', cls: 'badge-r' });
-  if (vis.c) cols.push({ key: m === 'neto' ? 'cn' : 'cb', label: 'Chico',  cls: 'badge-c' });
-  if (vis.s) cols.push({ key: m === 'neto' ? 'sn' : 'sb', label: 'Solís',  cls: 'badge-s' });
+  if (vis.r) cols.push({ key: m==='neto'?'rn':'rb', label:'Riedel', cls:'badge-r', cv:'--r-color' });
+  if (vis.c) cols.push({ key: m==='neto'?'cn':'cb', label:'Chico',  cls:'badge-c', cv:'--c-color' });
+  if (vis.s) cols.push({ key: m==='neto'?'sn':'sb', label:'Solís',  cls:'badge-s', cv:'--s-color' });
+  const tk = m==='neto'?'tn':'tb';
 
-  const tn = m === 'neto' ? 'tn' : 'tb';
-  const pr = 'pr', pc = 'pc', ps = 'ps';
-
-  root.innerHTML = `
+  document.getElementById('root').innerHTML = `
     <div class="card" style="padding:0">
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Ítem</th>
-              ${cols.map(c => `<th class="num"><span class="badge ${c.cls}">${c.label}</span></th>`).join('')}
-              <th class="num">Total</th>
-              <th class="num">Pagado (R)</th>
-              <th class="num">Pagado (C)</th>
-              <th class="num">Pagado (S)</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${items.map(row => `<tr>
-              <td><strong>${row.item}</strong></td>
-              ${cols.map(c => `<td class="num">$${fmt(row[c.key])}</td>`).join('')}
-              <td class="num" style="font-weight:500">$${fmt(row[tn])}</td>
-              <td class="num" style="color:var(--r-color)">$${fmt(row.pr)}</td>
-              <td class="num" style="color:var(--c-color)">$${fmt(row.pc)}</td>
-              <td class="num" style="color:var(--s-color)">$${fmt(row.ps)}</td>
-            </tr>`).join('')}
-          </tbody>
-          <tfoot>
-            <tr style="font-weight:600;border-top:2px solid var(--border)">
-              <td>TOTAL</td>
-              ${cols.map(c => `<td class="num">$${fmt(t[c.key])}</td>`).join('')}
-              <td class="num">$${fmt(t[tn])}</td>
-              <td class="num" style="color:var(--r-color)">$${fmt(t.pr)}</td>
-              <td class="num" style="color:var(--c-color)">$${fmt(t.pc)}</td>
-              <td class="num" style="color:var(--s-color)">$${fmt(t.ps)}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+      <div class="table-wrap"><table>
+        <thead><tr>
+          <th>Ítem</th>
+          ${cols.map(c=>`<th class="num"><span class="badge ${c.cls}">${c.label}</span></th>`).join('')}
+          <th class="num">Total</th>
+          <th class="num" style="color:var(--r-color)">Pag. R</th>
+          <th class="num" style="color:var(--c-color)">Pag. C</th>
+          <th class="num" style="color:var(--s-color)">Pag. S</th>
+        </tr></thead>
+        <tbody>
+          ${ITEMS.map(row=>`<tr>
+            <td><strong>${row.item}</strong></td>
+            ${cols.map(c=>`<td class="num">$${fmt(row[c.key])}</td>`).join('')}
+            <td class="num" style="font-weight:500">$${fmt(row[tk])}</td>
+            <td class="num" style="color:var(--r-color)">$${fmt(row.pr)}</td>
+            <td class="num" style="color:var(--c-color)">$${fmt(row.pc)}</td>
+            <td class="num" style="color:var(--s-color)">$${fmt(row.ps)}</td>
+          </tr>`).join('')}
+        </tbody>
+        <tfoot><tr style="font-weight:600;border-top:2px solid var(--border)">
+          <td>TOTAL</td>
+          ${cols.map(c=>`<td class="num">$${fmt(TOTALS[c.key])}</td>`).join('')}
+          <td class="num">$${fmt(TOTALS[tk])}</td>
+          <td class="num" style="color:var(--r-color)">$${fmt(TOTALS.pr)}</td>
+          <td class="num" style="color:var(--c-color)">$${fmt(TOTALS.pc)}</td>
+          <td class="num" style="color:var(--s-color)">$${fmt(TOTALS.ps)}</td>
+        </tr></tfoot>
+      </table></div>
     </div>
     <p style="margin-top:10px;font-size:12px;color:var(--fg-faint)">
-      Modo: <strong>${m === 'neto' ? 'Neto (sin IVA 9,5%)' : 'Bruto (con IVA 9,5%)'}</strong>
-    </p>
-  `;
+      Modo: <strong>${m==='neto'?'Neto (sin IVA 9,5%)':'Bruto (con IVA 9,5%)'}</strong>
+    </p>`;
 }
 
-load();
+renderTable();
 </script>
 </body>
 </html>
