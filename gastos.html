@@ -6,6 +6,49 @@
 <title>Gastos — Matrimonio 2026</title>
 <link rel="stylesheet" href="style.css">
 <style>
+/* Expandable rows */
+tr.item-row {
+  cursor: pointer;
+  user-select: none;
+}
+tr.item-row:hover td {
+  background: var(--hover-bg, rgba(0,0,0,.04));
+}
+tr.detail-row td {
+  padding: 0 !important;
+  border-top: none !important;
+}
+tr.detail-row .detail-inner {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height .25s ease;
+}
+tr.detail-row.open .detail-inner {
+  max-height: 200px;
+}
+.chevron {
+  display: inline-block;
+  font-size: 10px;
+  margin-right: 5px;
+  transition: transform .2s;
+  color: var(--fg-faint);
+}
+tr.item-row.open .chevron {
+  transform: rotate(90deg);
+}
+.family-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 12px 5px 28px;
+  font-size: 12px;
+  border-top: 1px solid var(--border);
+}
+.family-row:first-child { border-top: none; }
+.family-row-label { width: 100px; font-weight: 500; white-space: nowrap; }
+.family-row-bar { flex: 1; height: 6px; border-radius: 99px; background: var(--border); overflow: hidden; min-width: 60px; }
+.family-row-fill { height: 100%; border-radius: 99px; }
+.family-row-nums { white-space: nowrap; color: var(--fg-muted); min-width: 160px; text-align: right; }
 .tab-btn {
   padding: 8px 18px;
   border: none;
@@ -198,6 +241,43 @@ window.toggleFam = k => {
   renderTable();
 };
 
+// ── Toggle expand ─────────────────────────────────────────────
+window.toggleRow = id => {
+  const row = document.getElementById(`item-${id}`);
+  const det = document.getElementById(`det-${id}`);
+  if (!row || !det) return;
+  const open = row.classList.toggle('open');
+  det.classList.toggle('open', open);
+};
+
+// ── Detail markup (per-family breakdown) ──────────────────────
+function detailHtml(row, colspan) {
+  const families = [
+    { label:'Riedel Palma', share: row.rb, pag: row.pr, color:'var(--r-color)' },
+    { label:'Chico',        share: row.cb, pag: row.pc, color:'var(--c-color)' },
+    { label:'Solís Soto',   share: row.sb, pag: row.ps, color:'var(--s-color)' },
+  ];
+  const inner = families.map(f => {
+    const pct  = f.share > 0 ? Math.min(100, Math.round(f.pag / f.share * 100)) : 0;
+    const pend = Math.max(0, f.share - f.pag);
+    return `<div class="family-row">
+      <div class="family-row-label" style="color:${f.color}">${f.label}</div>
+      <div class="family-row-bar">
+        <div class="family-row-fill" style="width:${pct}%;background:${f.color}"></div>
+      </div>
+      <div class="family-row-nums">
+        $${fmt(f.pag)} pagado · <span style="color:${pend>0?'var(--fg-muted)':'var(--s-color)'}">$${fmt(pend)} pend.</span>
+        <span style="margin-left:6px;font-weight:600;color:${pct>=100?'var(--s-color)':pct>0?'var(--c-color)':'var(--fg-faint)'}">${pct}%</span>
+      </div>
+    </div>`;
+  }).join('');
+  return `<tr class="detail-row" id="det-${row._id}">
+    <td colspan="${colspan}" style="padding:0;border-top:none">
+      <div class="detail-inner">${inner}</div>
+    </td>
+  </tr>`;
+}
+
 // ── Mini stacked payment bar ──────────────────────────────────
 function stackedBar(row) {
   const total = row.rb + row.cb + row.sb;
@@ -261,12 +341,16 @@ function renderDist(m, CONF, EST) {
           <th>Pagado</th>
         </tr></thead>
         <tbody>
-          ${ITEMS.map(row=>{
+          ${ITEMS.map((row, i)=>{
             const est = row.est;
+            row._id = i;
             const rowTotal = row.rb + row.cb + row.sb;
             const rowPag   = row.pr + row.pc + row.ps;
-            return `<tr${est?' style="color:var(--fg-muted)"':''}>
-              <td>${est
+            const ncols = cols.length + 3; // item + family cols + total + pagado
+            return `<tr class="item-row${est?' style-muted':''}" id="item-${i}"
+                onclick="toggleRow(${i})"
+                ${est?'style="color:var(--fg-muted)"':''}>
+              <td><span class="chevron">▶</span>${est
                 ? `<em style="font-style:italic">${row.item}</em>`
                 : `<strong>${row.item}</strong>`
               }${est?' <span style="font-size:10px;opacity:0.6">(ref.)</span>':''}</td>
@@ -277,7 +361,8 @@ function renderDist(m, CONF, EST) {
                 (vis.s?(m==='neto'?row.sn:row.sb):0)
               )}</td>
               <td style="padding-right:8px">${pctBar(rowPag, rowTotal)}</td>
-            </tr>`;
+            </tr>
+            ${detailHtml(row, ncols)}`;
           }).join('')}
         </tbody>
         <tfoot>
@@ -317,13 +402,16 @@ function renderPagos(CONF, EST) {
           <th class="num">Pendiente</th>
         </tr></thead>
         <tbody>
-          ${ITEMS.map(row=>{
+          ${ITEMS.map((row, i)=>{
             const est   = row.est;
+            row._id = i;
             const total = row.rb + row.cb + row.sb;
             const pag   = row.pr + row.pc + row.ps;
             const pend  = Math.max(0, total - pag);
-            return `<tr${est?' style="color:var(--fg-muted)"':''}>
-              <td>${est
+            return `<tr class="item-row" id="item-${i}"
+                onclick="toggleRow(${i})"
+                ${est?'style="color:var(--fg-muted)"':''}>
+              <td><span class="chevron">▶</span>${est
                 ? `<em>${row.item}</em>`
                 : `<strong>${row.item}</strong>`
               }${est?' <span style="font-size:10px;opacity:0.6">(ref.)</span>':''}</td>
@@ -331,7 +419,8 @@ function renderPagos(CONF, EST) {
               <td style="padding-right:8px">${stackedBar(row)}</td>
               <td class="num" style="color:${pag>0?'var(--s-color)':'var(--fg-faint)'}">$${fmt(pag)}</td>
               <td class="num" style="color:${pend>0?'var(--r-color)':'var(--fg-faint)'}">$${pend>0?fmt(pend):'—'}</td>
-            </tr>`;
+            </tr>
+            ${detailHtml(row, 5)}`;
           }).join('')}
         </tbody>
         <tfoot>
