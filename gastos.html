@@ -352,12 +352,17 @@ function pctBarTotals(pr, pc, ps, rb, cb, sb) {
   </div>`;
 }
 
+// Un ítem estimado (est:true) que ya tiene pagos pasa a "Confirmado"
+function esEst(x) {
+  if (!x.est) return false;
+  const ip = ITEM_PAGADO[x.item] || { r:0, c:0, s:0 };
+  return (ip.r + ip.c + ip.s) === 0;
+}
+
 function renderTable() {
   const m = mode;
-  // Include zero-budget items that have payments in "confirmado" or "estimado"
-  const confItems = ITEMS.filter(x => !x.est || ((ITEM_PAGADO[x.item]||{r:0}).r + (ITEM_PAGADO[x.item]||{c:0}).c + (ITEM_PAGADO[x.item]||{s:0}).s) > 0);
-  const CONF = computeTotals(confItems.filter(x => !x.est));
-  const EST  = computeTotals(confItems.filter(x =>  x.est));
+  const CONF = computeTotals(ITEMS.filter(x => !esEst(x)));
+  const EST  = computeTotals(ITEMS.filter(x =>  esEst(x)));
   renderDist(m, CONF, EST);
 }
 
@@ -383,8 +388,8 @@ function renderDist(m, CONF, EST) {
     }, { pr:0, pc:0, ps:0, rb:0, cb:0, sb:0 });
   }
 
-  const confItems = ITEMS.filter(x => !x.est);
-  const estItems  = ITEMS.filter(x =>  x.est);
+  const confItems = ITEMS.filter(x => !esEst(x));
+  const estItems  = ITEMS.filter(x =>  esEst(x));
   const CF = footerPaid(confItems);
   const EF = footerPaid(estItems);
   const TF = { pr: CF.pr+EF.pr, pc: CF.pc+EF.pc, ps: CF.ps+EF.ps, rb: CF.rb+EF.rb, cb: CF.cb+EF.cb, sb: CF.sb+EF.sb };
@@ -400,7 +405,7 @@ function renderDist(m, CONF, EST) {
         </tr></thead>
         <tbody>
           ${ITEMS.map((row, i)=>{
-            const est = row.est;
+            const est = esEst(row); // true solo si estimado Y sin pagos aún
             row._id = i;
             const ip = ITEM_PAGADO[row.item] || { r:0, c:0, s:0 };
             const totalPagItem = ip.r + ip.c + ip.s;
