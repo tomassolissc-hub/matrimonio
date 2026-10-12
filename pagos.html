@@ -291,7 +291,12 @@ async function loadPagos() {
                 ? `<a href="${p.comprobante}" target="_blank" class="btn" style="font-size:11px;padding:4px 10px">Ver 🔗</a>`
                 : '<span style="color:var(--fg-faint);font-size:12px">—</span>'}</td>
               <td style="white-space:nowrap">
-                ${!p.id.startsWith('G') ? `<button onclick="editarPago('${p.id}','${p.familia}',${JSON.stringify(p.concepto)},${p.monto})" style="background:none;border:none;cursor:pointer;color:var(--fg-muted);font-size:14px;padding:2px 5px;line-height:1" title="Editar">✏️</button>` : ''}
+                ${!p.id.startsWith('G') ? `<button class="btn-edit-pago"
+                  data-id="${p.id}"
+                  data-familia="${p.familia}"
+                  data-concepto="${(p.concepto||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"
+                  data-monto="${p.monto}"
+                  style="background:none;border:none;cursor:pointer;color:var(--fg-muted);font-size:14px;padding:2px 5px;line-height:1" title="Editar">✏️</button>` : ''}
                 <button onclick="eliminarPago('${p.id}')" style="background:none;border:none;cursor:pointer;color:var(--fg-faint);font-size:16px;padding:2px 5px;line-height:1" title="Eliminar">×</button>
               </td>
             </tr>`).join('')}
@@ -303,6 +308,13 @@ async function loadPagos() {
     showError(listEl, e.message);
   }
 }
+
+// Delegated click para botones de editar (evita problemas con comillas en onclick inline)
+listEl.addEventListener('click', e => {
+  const btn = e.target.closest('.btn-edit-pago');
+  if (!btn) return;
+  editarPago(btn.dataset.id, btn.dataset.familia, btn.dataset.concepto, parseFloat(btn.dataset.monto));
+});
 
 loadPagos();
 </script>
