@@ -39,6 +39,7 @@
 
 <script type="module">
 import { apiFetch, fmt, initTheme, highlightNav } from './api.js';
+
 initTheme();
 highlightNav();
 
@@ -59,10 +60,11 @@ const ITEMS_FIXED = [
   { item:'Extras',            rn:4292500, rb:5108075, cn:2146250, cb:2554038, sn:2146250, sb:2554038, pr:0,       pc:0,      ps:0,      est:true },
 ];
 
-let mode = 'bruto';
-let vis  = { r:true, c:true, s:true };
+let mode   = 'bruto';
+let vis    = { r:true, c:true, s:true };
 let ITEMS  = ITEMS_FIXED.slice();
 let TOTALS = {};
+let PAGADO = { r:0, c:0, s:0 };
 
 function computeTotals(items) {
   return items.reduce((acc, x) => {
@@ -84,19 +86,47 @@ window.toggleMode = () => {
 
 function renderTiles() {
   const T = TOTALS;
-  const tiles = [
-    { label:'Riedel Palma', cls:'r', rb:T.rb, rn:T.rn },
-    { label:'Chico',        cls:'c', rb:T.cb, rn:T.cn },
-    { label:'Solís Soto',   cls:'s', rb:T.sb, rn:T.sn },
-    { label:'Total',        cls:'t', rb:T.tb, rn:T.tn },
-  ];
-  document.getElementById('tiles').innerHTML = tiles.map(t => `
-    <div class="stat-tile ${t.cls}">
-      <div class="label">${t.label}</div>
-      <div class="value">$${fmt(t.rb)}</div>
-      <div class="sub">neto $${fmt(t.rn)}</div>
-    </div>
-  `).join('');
+  const P = PAGADO;
+  const ptotal = P.r + P.c + P.s;
+
+  function tile(label, cls, bruto, neto, pag) {
+    const pct  = bruto > 0 ? Math.min(100, Math.round(pag / bruto * 100)) : 0;
+    const pend = Math.max(0, bruto - pag);
+    return `
+    <div class="stat-tile ${cls}">
+      <div class="label">${label}</div>
+      <div class="value">$${fmt(bruto)}</div>
+      <div class="sub" style="display:flex;flex-direction:column;gap:2px">
+        <span>neto $${fmt(neto)}</span>
+        <span>pagado $${fmt(pag)} · pendiente $${fmt(pend)}</span>
+      </div>
+      <div class="progress-wrap"><div class="progress-track">
+        <div class="progress-fill" style="width:${pct}%;background:var(--${cls}-color)"></div>
+      </div></div>
+      <div style="font-size:11px;color:var(--fg-faint);margin-top:2px;text-align:right">${pct}%</div>
+    </div>`;
+  }
+
+  const pctTotal = T.tb > 0 ? Math.min(100, Math.round(ptotal / T.tb * 100)) : 0;
+  const totalTile = `
+    <div class="stat-tile t">
+      <div class="label">Total</div>
+      <div class="value">$${fmt(T.tb)}</div>
+      <div class="sub" style="display:flex;flex-direction:column;gap:2px">
+        <span>neto $${fmt(T.tn)}</span>
+        <span>pagado $${fmt(ptotal)} · pendiente $${fmt(Math.max(0,T.tb-ptotal))}</span>
+      </div>
+      <div class="progress-wrap"><div class="progress-track">
+        <div class="progress-fill" style="width:${pctTotal}%"></div>
+      </div></div>
+      <div style="font-size:11px;color:var(--fg-faint);margin-top:2px;text-align:right">${pctTotal}%</div>
+    </div>`;
+
+  document.getElementById('tiles').innerHTML =
+    tile('Riedel Palma', 'r', T.rb, T.rn, P.r) +
+    tile('Chico',        'c', T.cb, T.cn, P.c) +
+    tile('Solís Soto',   's', T.sb, T.sn, P.s) +
+    totalTile;
 }
 
 window.toggleFam = k => {
@@ -187,31 +217,44 @@ function renderTable() {
     </p>`;
 }
 
+function computePagado(pagos) {
+  const p = { r:0, c:0, s:0 };
+  (pagos || []).forEach(pago => {
+    const k = pago.familia === 'Riedel Palma' ? 'r' : pago.familia === 'Chico' ? 'c' : 's';
+    p[k] += Number(pago.monto) || 0;
+  });
+  return p;
+}
+
 async function init() {
-  // Render con items fijos mientras carga la Banquetera
   ITEMS  = ITEMS_FIXED.slice();
   TOTALS = computeTotals(ITEMS);
   renderTiles();
   renderTable();
 
-  // Banquetera dinámica desde invitados
+  // Banquetera y pagos en paralelo
   try {
-    const banq = await apiFetch('banquetera');
+    const [banq, pagos] = await Promise.all([
+      apiFetch('banquetera'),
+      apiFetch('pagos'),
+    ]);
+
     if (banq && !banq.error) {
       const banqRow = {
         item: 'Banquetera',
-        rn: banq.rn || 0, rb: banq.rb || 0,
-        cn: banq.cn || 0, cb: banq.cb || 0,
-        sn: banq.sn || 0, sb: banq.sb || 0,
+        rn: banq.rn||0, rb: banq.rb||0,
+        cn: banq.cn||0, cb: banq.cb||0,
+        sn: banq.sn||0, sb: banq.sb||0,
         pr: 1500000, pc: 0, ps: 1500000,
       };
-      // Banquetera va después de Centro de Eventos
       ITEMS  = [ITEMS_FIXED[0], banqRow, ...ITEMS_FIXED.slice(1)];
       TOTALS = computeTotals(ITEMS);
-      renderTiles();
-      renderTable();
     }
-  } catch(e) { /* se queda sin Banquetera */ }
+
+    PAGADO = computePagado(pagos);
+    renderTiles();
+    renderTable();
+  } catch(e) { /* continúa sin datos remotos */ }
 }
 
 init();
