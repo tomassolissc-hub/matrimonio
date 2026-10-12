@@ -17,6 +17,7 @@
       <li><a href="invitados.html">Invitados</a></li>
       <li><a href="pagos.html">Pagos</a></li>
       <li><a href="familia.html">Mi resumen</a></li>
+      <li><a href="liquidacion.html"><strong>Liquidación</strong></a></li>
     </ul>
     <button class="theme-toggle" id="theme-toggle" aria-label="Cambiar tema">🌙</button>
   </div>
@@ -396,12 +397,6 @@ function renderPanel(pagos) {
   const pct = brutoTotal > 0 ? Math.min(100, Math.round(pagadoTotal / brutoTotal * 100)) : 0;
 
   root.innerHTML = `
-    <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
-      <a href="#liquidacion" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border);color:var(--fg);text-decoration:none;font-size:13px;font-weight:500;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-        ⚖️ Ver liquidación
-      </a>
-    </div>
-
     <div class="section-label">Totales generales</div>
     <div class="stat-grid" style="margin-bottom:28px">
       <div class="stat-tile t">
@@ -470,10 +465,6 @@ function renderPanel(pagos) {
       ${renderPagos(pagos)}
     </div>
 
-    <div class="section-label" id="liquidacion" style="scroll-margin-top:72px">Liquidación entre familias</div>
-    <div class="card" style="margin-bottom:28px;padding:24px 20px">
-      ${renderLiquidacion(pagos)}
-    </div>
   `;
 }
 
