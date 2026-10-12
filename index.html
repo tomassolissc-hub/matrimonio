@@ -28,7 +28,7 @@
 </main>
 
 <script type="module">
-import { apiFetch, fmt, initTheme, highlightNav } from './api.js';
+import { apiFetch, apiPost, fileToBase64, fmt, initTheme, highlightNav, toast } from './api.js';
 
 initTheme();
 highlightNav();
@@ -72,17 +72,52 @@ function renderPagos(pagos) {
     <thead><tr><th>Fecha</th><th>Familia</th><th>Concepto</th><th class="num">Monto</th><th>Comprobante</th></tr></thead>
     <tbody>${todos.map(p => {
       const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
+      const comp = p.comprobante
+        ? `<a href="${p.comprobante}" target="_blank" style="color:var(--accent-fg);font-size:12px">Ver →</a>`
+        : `<label style="cursor:pointer;color:var(--accent-fg);font-size:12px;display:inline-flex;align-items:center;gap:4px">
+             📎 Adjuntar
+             <input type="file" accept="image/*,application/pdf" hidden
+               onchange="subirComp('${p.id}', this)">
+           </label>`;
       return `<tr>
         <td>${p.fecha}</td>
         <td><span class="badge badge-${k}">${p.familia}</span></td>
         <td>${p.concepto}</td>
         <td class="num">$${fmt(p.monto)}</td>
-        <td>${p.comprobante ? `<a href="${p.comprobante}" target="_blank" style="color:var(--accent-fg);font-size:12px">Ver →</a>` : '—'}</td>
+        <td id="comp-cell-${p.id}">${comp}</td>
       </tr>`;
     }).join('')}</tbody>
   </table></div>
   <p style="text-align:right;margin-top:10px"><a href="pagos.html" style="color:var(--accent-fg);font-size:13px">Registrar pago →</a></p>`;
 }
+
+window.subirComp = async function(pagoId, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const cell = document.getElementById(`comp-cell-${pagoId}`);
+  if (cell) cell.innerHTML = '<span style="font-size:12px;color:var(--fg-muted)">Subiendo…</span>';
+  try {
+    const b64 = await fileToBase64(file);
+    const res = await apiPost({
+      action:   'uploadComprobante',
+      pagoId,
+      fileData: b64,
+      mimeType: file.type,
+      fileName: file.name,
+    });
+    if (res.ok && res.url) {
+      if (cell) cell.innerHTML = `<a href="${res.url}" target="_blank" style="color:var(--accent-fg);font-size:12px">Ver →</a>`;
+      try { localStorage.removeItem(PAGOS_CACHE_KEY); } catch(e) {}
+      toast('Comprobante subido ✓');
+    } else {
+      if (cell) cell.innerHTML = '<span style="color:#c0392b;font-size:12px">Error</span>';
+      toast('Error al subir', false);
+    }
+  } catch(err) {
+    if (cell) cell.innerHTML = '<span style="color:#c0392b;font-size:12px">Error</span>';
+    toast(err.message || 'Error al subir', false);
+  }
+};
 
 function renderPanel(pagos) {
   const pagado = { r: 0, c: 0, s: 0 };
