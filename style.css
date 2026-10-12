@@ -307,21 +307,25 @@ tr:hover td { background: var(--bg); }
 }
 .btn-primary:hover { opacity: 0.9; }
 
-/* ── Guest grid ──────────────────────────────────────────────── */
+/* ── Guest list ──────────────────────────────────────────────── */
 .guest-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 .guest-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 10px;
+  padding: 9px 12px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 13px;
+}
+.guest-item .guest-name {
+  flex: 1;
+  min-width: 0;
 }
 .guest-tag {
   font-size: 10px;
@@ -332,6 +336,29 @@ tr:hover td { background: var(--bg); }
   color: var(--fg-muted);
   white-space: nowrap;
 }
+.guest-tipo {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent-fg);
+  white-space: nowrap;
+}
+.btn-delete-guest {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--fg-faint);
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color .15s, background .15s;
+  flex-shrink: 0;
+}
+.btn-delete-guest:hover { color: #c0392b; background: rgba(192,57,43,.1); }
 
 /* ── Progress bar ────────────────────────────────────────────── */
 .progress-wrap { margin-top: 6px; }
