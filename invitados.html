@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Invitados — Matrimonio 2026</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
@@ -34,7 +34,7 @@
 </main>
 
 <script type="module">
-import { apiFetch, initTheme, highlightNav, showError } from './api.js';
+import { apiFetch, apiPost, initTheme, highlightNav, showError, toast } from './js/api.js';
 
 initTheme();
 highlightNav();
@@ -49,7 +49,6 @@ const SUBFILTERS = {
   solis:  ['Todos', 'Solís', 'Soto'],
 };
 const LABELS = { riedel: 'Riedel Palma', chico: 'Chico', solis: 'Solís Soto' };
-const BADGE  = { riedel: 'badge-r', chico: 'badge-c', solis: 'badge-s' };
 
 const root     = document.getElementById('root');
 const tabsEl   = document.getElementById('tabs');
@@ -91,47 +90,62 @@ function renderSubfilters() {
 function renderGuests() {
   const q   = searchEl.value.trim().toLowerCase();
   const all = guests[current] || [];
-  let list  = subfilter === 'all' ? all : all.filter(g => (typeof g==='object'?g.g:g) === subfilter);
-  if (q)   list = list.filter(g => (typeof g==='object'?g.n:g).toLowerCase().includes(q));
+  let list  = subfilter === 'all' ? all : all.filter(g => g.g === subfilter);
+  if (q) list = list.filter(g => g.n.toLowerCase().includes(q));
 
-  const count  = all.length;
-  const shown  = list.length;
-  const badge  = BADGE[current];
+  const count = all.length;
+  const shown = list.length;
 
   document.getElementById('subtitle').textContent =
     `${count} invitados${q || subfilter!=='all' ? ` · mostrando ${shown}` : ''}`;
 
   if (!list.length) {
-    root.innerHTML = `<p style="color:var(--fg-muted);padding:20px 0;font-size:13px">Sin resultados para "${q || subfilter}".</p>`;
+    root.innerHTML = `<p style="color:var(--fg-muted);padding:20px 0;font-size:13px">Sin resultados.</p>`;
     return;
   }
 
   root.innerHTML = `<div class="guest-grid">
-    ${list.map(g => {
-      const name = typeof g === 'object' ? g.n : g;
-      const tag  = typeof g === 'object' && g.g ? g.g : '';
-      return `<div class="guest-item">
-        <span>${name}</span>
-        ${tag ? `<span class="guest-tag">${tag}</span>` : ''}
-      </div>`;
-    }).join('')}
+    ${list.map(g => `
+      <div class="guest-item" data-id="${g.id || ''}">
+        <span class="guest-name">${g.n}</span>
+        ${g.tipo ? `<span class="guest-tipo">${g.tipo}</span>` : ''}
+        ${g.g    ? `<span class="guest-tag">${g.g}</span>` : ''}
+        <button class="btn-delete-guest" title="Eliminar invitado"
+                onclick="deleteGuest('${(g.id||'').toString().replace(/'/g,"\\'")}', '${g.n.replace(/'/g,"\\'")}', this)">✕</button>
+      </div>
+    `).join('')}
   </div>`;
 }
 
 window.setFamily = (k) => {
-  current = k;
-  subfilter = 'all';
-  searchEl.value = '';
-  renderTabs();
-  renderSubfilters();
-  renderGuests();
+  current = k; subfilter = 'all'; searchEl.value = '';
+  renderTabs(); renderSubfilters(); renderGuests();
 };
 window.setSub = (s) => {
-  subfilter = s;
-  renderSubfilters();
-  renderGuests();
+  subfilter = s; renderSubfilters(); renderGuests();
 };
 searchEl.addEventListener('input', renderGuests);
+
+window.deleteGuest = async (id, name, btn) => {
+  if (!id) { toast('Este invitado no tiene ID — no se puede borrar desde aquí.', false); return; }
+  if (!confirm(`¿Eliminar a ${name} de la lista?`)) return;
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    await apiPost({ action: 'deleteGuest', id });
+    // Quitar del estado local
+    for (const k of ['riedel','chico','solis']) {
+      guests[k] = (guests[k] || []).filter(g => String(g.id) !== String(id));
+    }
+    toast(`${name} eliminado/a`);
+    renderTabs();
+    renderGuests();
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '✕';
+    toast(e.message, false);
+  }
+};
 
 load();
 </script>
