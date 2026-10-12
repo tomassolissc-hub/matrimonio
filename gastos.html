@@ -38,32 +38,43 @@
 </main>
 
 <script type="module">
-import { fmt, initTheme, highlightNav } from './api.js';
+import { apiFetch, fmt, initTheme, highlightNav } from './api.js';
 initTheme();
 highlightNav();
 
-// ── Datos (mismos del artifact v12) ──────────────────────────
-const ITEMS = [
-  { item:'Centro de Eventos',  rb:3147581,  rn:2307481,  cb:2630838,  cn:2210788,  sb:480838,   sn:60788,   pr:2114095, pc:0,       ps:2150000 },
-  { item:'Banquetera',         rb:19803290, rn:17955060, cb:8182170,  cn:7472302,  sb:5748927,  sn:5120025, pr:1500000, pc:0,       ps:1500000 },
-  { item:'DJ',                 rb:1190000,  rn:1190000,  cb:595000,   cn:595000,   sb:595000,   sn:595000,  pr:0,       pc:925000,  ps:0       },
-  { item:'Fotógrafo',          rb:1785000,  rn:1785000,  cb:892500,   cn:892500,   sb:892500,   sn:892500,  pr:900000,  pc:0,       ps:0       },
-  { item:'Videógrafo',         rb:1190000,  rn:1190000,  cb:595000,   cn:595000,   sb:595000,   sn:595000,  pr:0,       pc:650000,  ps:0       },
-  { item:'Maquilladora',       rb:0,        rn:0,        cb:0,        cn:0,        sb:725000,   sn:725000,  pr:0,       pc:0,       ps:0       },
-  { item:'Comida extra',       rb:476000,   rn:476000,   cb:238000,   cn:238000,   sb:238000,   sn:238000,  pr:0,       pc:0,       ps:0       },
-  { item:'Pista de Baile',     rb:654500,   rn:654500,   cb:327250,   cn:327250,   sb:327250,   sn:327250,  pr:0,       pc:311500,  ps:0       },
-  { item:'Saxofonista',        rb:357000,   rn:357000,   cb:178500,   cn:178500,   sb:178500,   sn:178500,  pr:62500,   pc:62500,   ps:0       },
-  { item:'Flores',             rb:2380000,  rn:2380000,  cb:1190000,  cn:1190000,  sb:1190000,  sn:1190000, pr:0,       pc:0,       ps:0       },
-  { item:'Extras',             rb:759125,   rn:757500,   cb:812688,   cn:811000,   sb:556688,   sn:505000,  pr:0,       pc:0,       ps:0       },
+// ── Items fijos (excluye Banquetera — viene de la API) ────────
+// Neto según contratos. Bruto = neto × 1.19. Distribución 50/25/25
+// Maquilladora y Ceremonia sin precio confirmado aún → ceros
+const ITEMS_FIXED = [
+  { item:'Centro de Eventos', rn:4423284, rb:5263708, cn:2211642, cb:2631854, sn:2211642, sb:2631854, pr:2114095, pc:0,      ps:2150000 },
+  { item:'DJ',                rn:925000,  rb:1100750, cn:462500,  cb:550375,  sn:462500,  sb:550375,  pr:0,       pc:925000, ps:0       },
+  { item:'Fotógrafo',         rn:900000,  rb:1071000, cn:450000,  cb:535500,  sn:450000,  sb:535500,  pr:900000,  pc:0,      ps:0       },
+  { item:'Videógrafo',        rn:650000,  rb:773500,  cn:325000,  cb:386750,  sn:325000,  sb:386750,  pr:0,       pc:650000, ps:0       },
+  { item:'Maquilladora',      rn:0,       rb:0,       cn:0,       cb:0,       sn:0,       sb:0,       pr:0,       pc:0,      ps:0       },
+  { item:'Comida extra',      rn:30000,   rb:35700,   cn:15000,   cb:17850,   sn:15000,   sb:17850,   pr:0,       pc:0,      ps:0       },
+  { item:'Pista de Baile',    rn:330000,  rb:392700,  cn:165000,  cb:196350,  sn:165000,  sb:196350,  pr:0,       pc:311500, ps:0       },
+  { item:'Ceremonia',         rn:0,       rb:0,       cn:0,       cb:0,       sn:0,       sb:0,       pr:0,       pc:0,      ps:0       },
+  { item:'Saxofonista',       rn:125000,  rb:148750,  cn:62500,   cb:74375,   sn:62500,   sb:74375,   pr:62500,   pc:62500,  ps:0       },
+  { item:'Flores',            rn:800000,  rb:952000,  cn:400000,  cb:476000,  sn:400000,  sb:476000,  pr:0,       pc:0,      ps:0       },
+  { item:'Extras',            rn:4292500, rb:5108075, cn:2146250, cb:2554038, sn:2146250, sb:2554038, pr:0,       pc:0,      ps:0       },
 ];
-
-const TOTALS = {
-  rb:31842496, rn:28852541, cb:15641946, cn:13310340, sb:11527703, sn:9207063,
-  tb:59012145, tn:51369944, pr:4576595,  pc:1949000,  ps:3650000,
-};
 
 let mode = 'bruto';
 let vis  = { r:true, c:true, s:true };
+let ITEMS  = ITEMS_FIXED.slice();
+let TOTALS = {};
+
+function computeTotals(items) {
+  return items.reduce((acc, x) => {
+    acc.rb += x.rb; acc.rn += x.rn;
+    acc.cb += x.cb; acc.cn += x.cn;
+    acc.sb += x.sb; acc.sn += x.sn;
+    acc.tb += x.rb + x.cb + x.sb;
+    acc.tn += x.rn + x.cn + x.sn;
+    acc.pr += x.pr; acc.pc += x.pc; acc.ps += x.ps;
+    return acc;
+  }, { rb:0, rn:0, cb:0, cn:0, sb:0, sn:0, tb:0, tn:0, pr:0, pc:0, ps:0 });
+}
 
 window.toggleMode = () => {
   mode = mode === 'neto' ? 'bruto' : 'neto';
@@ -72,11 +83,12 @@ window.toggleMode = () => {
 };
 
 function renderTiles() {
+  const T = TOTALS;
   const tiles = [
-    { k:'r', label:'Riedel Palma', cls:'r', rb:TOTALS.rb, rn:TOTALS.rn },
-    { k:'c', label:'Chico',        cls:'c', rb:TOTALS.cb, rn:TOTALS.cn },
-    { k:'s', label:'Solís Soto',   cls:'s', rb:TOTALS.sb, rn:TOTALS.sn },
-    { k:'t', label:'Total',        cls:'t', rb:TOTALS.tb, rn:TOTALS.tn },
+    { label:'Riedel Palma', cls:'r', rb:T.rb, rn:T.rn },
+    { label:'Chico',        cls:'c', rb:T.cb, rn:T.cn },
+    { label:'Solís Soto',   cls:'s', rb:T.sb, rn:T.sn },
+    { label:'Total',        cls:'t', rb:T.tb, rn:T.tn },
   ];
   document.getElementById('tiles').innerHTML = tiles.map(t => `
     <div class="stat-tile ${t.cls}">
@@ -96,10 +108,9 @@ window.toggleFam = k => {
 function renderTable() {
   const m = mode;
   const cols = [];
-  if (vis.r) cols.push({ key: m==='neto'?'rn':'rb', label:'Riedel', cls:'badge-r', cv:'--r-color' });
-  if (vis.c) cols.push({ key: m==='neto'?'cn':'cb', label:'Chico',  cls:'badge-c', cv:'--c-color' });
-  if (vis.s) cols.push({ key: m==='neto'?'sn':'sb', label:'Solís',  cls:'badge-s', cv:'--s-color' });
-  const tk = m==='neto'?'tn':'tb';
+  if (vis.r) cols.push({ key: m==='neto'?'rn':'rb', label:'Riedel', cls:'badge-r' });
+  if (vis.c) cols.push({ key: m==='neto'?'cn':'cb', label:'Chico',  cls:'badge-c' });
+  if (vis.s) cols.push({ key: m==='neto'?'sn':'sb', label:'Solís',  cls:'badge-s' });
 
   document.getElementById('root').innerHTML = `
     <div class="card" style="padding:0">
@@ -141,12 +152,38 @@ function renderTable() {
       </table></div>
     </div>
     <p style="margin-top:10px;font-size:12px;color:var(--fg-faint)">
-      Modo: <strong>${m==='neto'?'Neto (sin IVA 9,5%)':'Bruto (con IVA 9,5%)'}</strong>
+      Modo: <strong>${m==='neto'?'Neto (sin IVA — 9,5% Banquetera / 19% resto)':'Bruto (con IVA — 9,5% Banquetera / 19% resto)'}</strong>
     </p>`;
 }
 
-renderTiles();
-renderTable();
+async function init() {
+  // Render con items fijos mientras carga la Banquetera
+  ITEMS  = ITEMS_FIXED.slice();
+  TOTALS = computeTotals(ITEMS);
+  renderTiles();
+  renderTable();
+
+  // Banquetera dinámica desde invitados
+  try {
+    const banq = await apiFetch('banquetera');
+    if (banq && !banq.error) {
+      const banqRow = {
+        item: 'Banquetera',
+        rn: banq.rn || 0, rb: banq.rb || 0,
+        cn: banq.cn || 0, cb: banq.cb || 0,
+        sn: banq.sn || 0, sb: banq.sb || 0,
+        pr: 1500000, pc: 0, ps: 1500000,
+      };
+      // Banquetera va después de Centro de Eventos
+      ITEMS  = [ITEMS_FIXED[0], banqRow, ...ITEMS_FIXED.slice(1)];
+      TOTALS = computeTotals(ITEMS);
+      renderTiles();
+      renderTable();
+    }
+  } catch(e) { /* se queda sin Banquetera */ }
+}
+
+init();
 </script>
 </body>
 </html>
