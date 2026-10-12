@@ -34,17 +34,22 @@ initTheme();
 highlightNav();
 
 // ── Datos financieros (actualizados manualmente cuando cambia un contrato) ──
-const NETO = { r: 27352541, c: 11760340, s: 9207063 };
-const NETO_TOTAL = NETO.r + NETO.c + NETO.s; // 48319944
+const BRUTO = { r: 31842496, c: 15641946, s: 11527703 };
+const NETO  = { r: 28852541, c: 13310340, s: 9207063  };
+const BRUTO_TOTAL = BRUTO.r + BRUTO.c + BRUTO.s; // 59012145
+const NETO_TOTAL  = NETO.r  + NETO.c  + NETO.s;  // 51370144
 
 const root = document.getElementById('root');
 
-function familiaCard(k, label, total, pagado, pend) {
-  const pct = total > 0 ? Math.min(100, Math.round(pagado / total * 100)) : 0;
+function familiaCard(k, label, bruto, neto, pagado, pend) {
+  const pct = bruto > 0 ? Math.min(100, Math.round(pagado / bruto * 100)) : 0;
   return `<div class="stat-tile ${k}">
     <div class="label">${label}</div>
-    <div class="value">$${fmt(total)}</div>
-    <div class="sub">pagado $${fmt(pagado)} · pendiente $${fmt(pend)}</div>
+    <div class="value">$${fmt(bruto)}</div>
+    <div class="sub" style="display:flex;flex-direction:column;gap:1px">
+      <span>neto $${fmt(neto)}</span>
+      <span>pagado $${fmt(pagado)} · pendiente $${fmt(pend)}</span>
+    </div>
     <div class="progress-wrap"><div class="progress-track">
       <div class="progress-fill" style="width:${pct}%;background:var(--${k}-color)"></div>
     </div></div>
@@ -82,25 +87,25 @@ function renderPanel(pagos) {
   const pagadoTotal = pagado.r + pagado.c + pagado.s;
 
   const pend = {
-    r: Math.max(0, NETO.r - pagado.r),
-    c: Math.max(0, NETO.c - pagado.c),
-    s: Math.max(0, NETO.s - pagado.s),
+    r: Math.max(0, BRUTO.r - pagado.r),
+    c: Math.max(0, BRUTO.c - pagado.c),
+    s: Math.max(0, BRUTO.s - pagado.s),
   };
   const pendTotal = pend.r + pend.c + pend.s;
-  const pct = NETO_TOTAL > 0 ? Math.min(100, Math.round(pagadoTotal / NETO_TOTAL * 100)) : 0;
+  const pct = BRUTO_TOTAL > 0 ? Math.min(100, Math.round(pagadoTotal / BRUTO_TOTAL * 100)) : 0;
 
   root.innerHTML = `
     <div class="section-label">Totales generales</div>
     <div class="stat-grid" style="margin-bottom:28px">
       <div class="stat-tile t">
-        <div class="label">Total neto</div>
-        <div class="value">$${fmt(NETO_TOTAL)}</div>
-        <div class="sub">sin IVA</div>
+        <div class="label">Total bruto</div>
+        <div class="value">$${fmt(BRUTO_TOTAL)}</div>
+        <div class="sub">neto $${fmt(NETO_TOTAL)}</div>
       </div>
       <div class="stat-tile">
         <div class="label">Pagado</div>
         <div class="value">$${fmt(pagadoTotal)}</div>
-        <div class="sub">${pct}% del total</div>
+        <div class="sub">${pct}% del total bruto</div>
         <div class="progress-wrap"><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></div>
       </div>
       <div class="stat-tile">
@@ -112,9 +117,9 @@ function renderPanel(pagos) {
 
     <div class="section-label">Por familia</div>
     <div class="stat-grid" style="margin-bottom:28px">
-      ${familiaCard('r','Riedel Palma',NETO.r,pagado.r,pend.r)}
-      ${familiaCard('c','Chico',NETO.c,pagado.c,pend.c)}
-      ${familiaCard('s','Solís Soto',NETO.s,pagado.s,pend.s)}
+      ${familiaCard('r','Riedel Palma',BRUTO.r,NETO.r,pagado.r,pend.r)}
+      ${familiaCard('c','Chico',BRUTO.c,NETO.c,pagado.c,pend.c)}
+      ${familiaCard('s','Solís Soto',BRUTO.s,NETO.s,pagado.s,pend.s)}
     </div>
 
     <div class="section-label">Distribución gastos generales</div>
