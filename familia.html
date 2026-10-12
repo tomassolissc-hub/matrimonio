@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mi resumen — Matrimonio 2026</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.hero-card {
+  border-radius: 20px;
+  padding: 28px 24px 24px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.hero-card.r { background: linear-gradient(135deg, var(--r-color) 0%, #7c3aed 100%); color: #fff; }
+.hero-card.c { background: linear-gradient(135deg, var(--c-color) 0%, #0891b2 100%); color: #fff; }
+.hero-card.s { background: linear-gradient(135deg, var(--s-color) 0%, #059669 100%); color: #fff; }
+.hero-label { font-size: 13px; opacity: .8; font-weight: 500; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 6px; }
+.hero-amount { font-size: 40px; font-weight: 800; line-height: 1; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+.hero-sub { font-size: 13px; opacity: .75; }
+.hero-progress { margin-top: 20px; }
+.hero-track { background: rgba(255,255,255,.25); border-radius: 99px; height: 10px; overflow: hidden; }
+.hero-fill { height: 100%; border-radius: 99px; background: rgba(255,255,255,.85); transition: width .6s ease; }
+.hero-pct { font-size: 13px; opacity: .9; margin-top: 6px; font-weight: 600; }
+
+.summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+.sum-tile { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+.sum-label { font-size: 11px; color: var(--fg-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+.sum-value { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--fg); }
+.sum-sub { font-size: 12px; color: var(--fg-faint); margin-top: 3px; }
+
+.item-list { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
+.item-line { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--card-bg); }
+.item-line:last-child { border-bottom: none; }
+.item-name { flex: 1; font-size: 13px; font-weight: 500; color: var(--fg); }
+.item-name.est { color: var(--fg-muted); font-style: italic; }
+.item-amounts { text-align: right; flex-shrink: 0; }
+.item-share { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--fg); }
+.item-paid { font-size: 11px; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+.item-bar-wrap { width: 60px; flex-shrink: 0; }
+.item-bar { height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
+.item-bar-fill { height: 100%; border-radius: 99px; transition: width .4s; }
+.item-pct { font-size: 10px; color: var(--fg-faint); text-align: right; margin-top: 2px; font-weight: 600; }
+
+.banq-note { font-size: 12px; color: var(--fg-faint); background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-bottom: 24px; }
+
+.selector-wrap { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+.sel-btn { flex: 1; min-width: 100px; padding: 12px 8px; border-radius: 10px; border: 2px solid var(--border); background: var(--card-bg); color: var(--fg-muted); font-size: 13px; font-weight: 600; cursor: pointer; text-align: center; transition: all .15s; }
+.sel-btn.r.active { border-color: var(--r-color); color: var(--r-color); background: color-mix(in srgb, var(--r-color) 10%, transparent); }
+.sel-btn.c.active { border-color: var(--c-color); color: var(--c-color); background: color-mix(in srgb, var(--c-color) 10%, transparent); }
+.sel-btn.s.active { border-color: var(--s-color); color: var(--s-color); background: color-mix(in srgb, var(--s-color) 10%, transparent); }
+</style>
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="site-nav-inner">
+    <a class="site-nav-brand" href="index.html">💍 Matrimonio 2026</a>
+    <ul class="site-nav-links">
+      <li><a href="index.html">Panel</a></li>
+      <li><a href="gastos.html">Gastos</a></li>
+      <li><a href="invitados.html">Invitados</a></li>
+      <li><a href="pagos.html">Pagos</a></li>
+      <li><a href="familia.html">Mi resumen</a></li>
+    </ul>
+    <button class="theme-toggle" id="theme-toggle" aria-label="Cambiar tema">🌙</button>
+  </div>
+</nav>
+
+<main class="page">
+  <h1 class="page-title" id="page-title">Mi resumen</h1>
+  <p class="page-subtitle" style="margin-bottom:20px">Matrimonio Riedel Palma &amp; Solís Soto · 2026</p>
+
+  <!-- Selector de familia (solo visible sin parámetro en URL) -->
+  <div class="selector-wrap" id="selector-wrap">
+    <button class="sel-btn r" onclick="setFam('r')">Riedel Palma</button>
+    <button class="sel-btn c" onclick="setFam('c')">Chico</button>
+    <button class="sel-btn s" onclick="setFam('s')">Solís Soto</button>
+  </div>
+
+  <div id="root"><div class="loading"><div class="spinner"></div> Cargando…</div></div>
+</main>
+
+<script type="module">
+import { apiFetch, fmt, initTheme, highlightNav } from './api.js';
+
+initTheme();
+highlightNav();
+
+const ITEMS_FIXED = [
+  { item:'Centro de Eventos', rn:4423284, rb:5263708, cn:2211642, cb:2631854, sn:2211642, sb:2631854, pr:2114095, pc:0,      ps:2150000 },
+  { item:'DJ',                rn:777311,  rb:925000,  cn:388655,  cb:462500,  sn:388655,  sb:462500,  pr:0,       pc:925000, ps:0       },
+  { item:'Fotógrafo',         rn:756303,  rb:900000,  cn:378151,  cb:450000,  sn:378151,  sb:450000,  pr:900000,  pc:0,      ps:0       },
+  { item:'Videógrafo',        rn:546218,  rb:650000,  cn:273109,  cb:325000,  sn:273109,  sb:325000,  pr:0,       pc:650000, ps:0       },
+  { item:'Maquilladora',      rn:0,       rb:0,       cn:0,       cb:0,       sn:0,       sb:0,       pr:0,       pc:0,      ps:0,      est:true },
+  { item:'Comida extra',      rn:30000,   rb:35700,   cn:15000,   cb:17850,   sn:15000,   sb:17850,   pr:0,       pc:0,      ps:0       },
+  { item:'Pista de Baile',    rn:261765,  rb:311500,  cn:130882,  cb:155750,  sn:130882,  sb:155750,  pr:0,       pc:311500, ps:0       },
+  { item:'Ceremonia',         rn:0,       rb:0,       cn:0,       cb:0,       sn:0,       sb:0,       pr:0,       pc:0,      ps:0,      est:true },
+  { item:'Saxofonista',       rn:105042,  rb:125000,  cn:52521,   cb:62500,   sn:52521,   sb:62500,   pr:62500,   pc:62500,  ps:0       },
+  { item:'Flores',            rn:800000,  rb:952000,  cn:400000,  cb:476000,  sn:400000,  sb:476000,  pr:0,       pc:0,      ps:0,      est:true },
+  { item:'Extras',            rn:4292500, rb:5108075, cn:2146250, cb:2554038, sn:2146250, sb:2554038, pr:0,       pc:0,      ps:0,      est:true },
+];
+
+const LABELS = { r: 'Riedel Palma', c: 'Chico', s: 'Solís Soto' };
+const root = document.getElementById('root');
+
+let fam = 'r';
+let banqData = null;
+let pagosData = null;
+
+// Leer param de URL — si viene con ?f=, es link personal: ocultar selector
+const urlParam = new URLSearchParams(location.search).get('f');
+const hasParam = urlParam && ['r','c','s'].includes(urlParam);
+if (hasParam) {
+  fam = urlParam;
+  document.getElementById('selector-wrap').style.display = 'none';
+}
+
+function buildItems(banq) {
+  const items = ITEMS_FIXED.slice();
+  if (banq && !banq.error) {
+    items.push({
+      item: 'Banquetera',
+      rb: banq.rb||0, rn: banq.rn||0,
+      cb: banq.cb||0, cn: banq.cn||0,
+      sb: banq.sb||0, sn: banq.sn||0,
+      pr: 0, pc: 0, ps: 0,
+    });
+  }
+  return items;
+}
+
+function computeFromPagos(pagos) {
+  const paid = { r:0, c:0, s:0 };
+  (pagos||[]).forEach(p => {
+    const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
+    paid[k] += Number(p.monto)||0;
+  });
+  return paid;
+}
+
+function render() {
+  const items  = buildItems(banqData);
+  const paid   = computeFromPagos(pagosData);
+  const k      = fam;
+  const bKey   = k + 'b'; // rb / cb / sb
+  const pKey   = 'p' + k; // pr / pc / ps
+
+  const totalShare  = items.reduce((s, x) => s + (x[bKey]||0), 0);
+  const totalPaid   = paid[k];
+  const totalPend   = Math.max(0, totalShare - totalPaid);
+  const pct         = totalShare > 0 ? Math.min(100, Math.round(totalPaid / totalShare * 100)) : 0;
+
+  // Actualizar selector (solo si está visible)
+  if (!hasParam) {
+    document.querySelectorAll('.sel-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.sel-btn.${k}`).classList.add('active');
+  }
+  document.getElementById('page-title').textContent = `Familia ${LABELS[k]}`;
+  document.title = `${LABELS[k]} — Matrimonio 2026`;
+
+  // Actualizar URL sin recargar
+  history.replaceState(null,'',`?f=${k}`);
+
+  const estItems  = items.filter(x => x.est && (x[bKey]||0) > 0);
+  const realItems = items.filter(x => !x.est && (x[bKey]||0) > 0);
+  const zeroItems = items.filter(x => !x.est && (x[bKey]||0) === 0);
+
+  function itemLine(x) {
+    const share = x[bKey]||0;
+    const ipaid = x[pKey]||0;
+    const ipct  = share > 0 ? Math.min(100, Math.round(ipaid / share * 100)) : 0;
+    const color = `var(--${k}-color)`;
+    return `<div class="item-line">
+      <div class="item-name${x.est?' est':''}">${x.item}${x.est?' ★':''}</div>
+      <div class="item-bar-wrap">
+        <div class="item-bar"><div class="item-bar-fill" style="width:${ipct}%;background:${color}"></div></div>
+        <div class="item-pct" style="color:${color}">${ipct}%</div>
+      </div>
+      <div class="item-amounts">
+        <div class="item-share">$${fmt(share)}</div>
+        <div class="item-paid">pagado $${fmt(ipaid)}</div>
+      </div>
+    </div>`;
+  }
+
+  root.innerHTML = `
+    <div class="hero-card ${k}">
+      <div class="hero-label">Tu parte del matrimonio</div>
+      <div class="hero-amount">$${fmt(totalShare)}</div>
+      <div class="hero-sub">bruto (con IVA)</div>
+      <div class="hero-progress">
+        <div class="hero-track"><div class="hero-fill" style="width:${pct}%"></div></div>
+        <div class="hero-pct">${pct}% pagado</div>
+      </div>
+    </div>
+
+    <div class="summary-grid">
+      <div class="sum-tile">
+        <div class="sum-label">Pagado</div>
+        <div class="sum-value" style="color:var(--${k}-color)">$${fmt(totalPaid)}</div>
+        <div class="sum-sub">${pct}% del total</div>
+      </div>
+      <div class="sum-tile">
+        <div class="sum-label">Por pagar</div>
+        <div class="sum-value" style="color:${totalPend>0?'var(--fg)':'var(--s-color)'}">$${fmt(totalPend)}</div>
+        <div class="sum-sub">${totalPend > 0 ? 'pendiente' : '✓ al día'}</div>
+      </div>
+    </div>
+
+    ${realItems.length ? `
+    <div class="section-label">Ítems contratados</div>
+    <div class="item-list">${realItems.map(itemLine).join('')}</div>
+    ` : ''}
+
+    ${estItems.length ? `
+    <div class="section-label">Ítems por confirmar ★</div>
+    <div class="banq-note">★ Montos estimados, aún no contratados. Pueden cambiar.</div>
+    <div class="item-list">${estItems.map(itemLine).join('')}</div>
+    ` : ''}
+
+    ${zeroItems.length ? `
+    <p style="font-size:12px;color:var(--fg-faint);margin:0 0 8px">
+      Sin costo para tu familia: ${zeroItems.map(x=>x.item).join(' · ')}
+    </p>
+    ` : ''}
+
+    <div style="margin-top:8px">
+      <a href="pagos.html" class="btn btn-primary" style="display:inline-block;text-decoration:none">
+        + Registrar pago
+      </a>
+    </div>
+  `;
+}
+
+window.setFam = (k) => { fam = k; render(); };
+
+async function load() {
+  try {
+    const [banq, pagos] = await Promise.all([
+      apiFetch('banquetera'),
+      apiFetch('pagos'),
+    ]);
+    banqData  = banq && !banq.error ? banq : null;
+    pagosData = pagos || [];
+    render();
+  } catch(e) {
+    root.innerHTML = `<p style="color:var(--fg-muted);font-size:13px">Error al cargar datos.</p>`;
+  }
+}
+
+// Render inicial con datos vacíos para que se vea algo rápido
+render();
+load();
+</script>
+</body>
+</html>
