@@ -131,38 +131,46 @@ function buildItems(banq) {
   return items;
 }
 
-const SHARED_ITEM_NAMES = ['ceremonia', 'maquilladora'];
+function computeDeuda(pagos, banq, myKey) {
+  // Tricount completo: todo va al pozo, split 50/25/25 (banquetera por invitados).
+  // net = lo que pagué - lo que debía. Positivo = me deben, negativo = debo.
+  const banqPagado = { r:0, c:0, s:0 };
+  const restoPagado = { r:0, c:0, s:0 };
 
-function computeDeuda(pagos, myKey) {
-  // Solo ítems compartidos (sin presupuesto fijo): una familia puede pagar por las tres.
-  // Cada una debe 50/25/25. Si pagué más de mi parte → me deben; si pagué menos → debo.
-  const SPLITS = { r: 0.50, c: 0.25, s: 0.25 };
-  const byItem = {};
   (pagos||[]).forEach(p => {
     const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
     const m = Number(p.monto)||0;
     const c = String(p.concepto||'').toLowerCase();
-    const match = SHARED_ITEM_NAMES.find(n => c.includes(n));
-    if (!match) return;
-    const key = match.charAt(0).toUpperCase() + match.slice(1);
-    if (!byItem[key]) byItem[key] = { r:0, c:0, s:0 };
-    byItem[key][k] += m;
+    if (c.includes('banquetera') || c.includes('catering') || c.includes('comida')) {
+      banqPagado[k] += m;
+    } else {
+      restoPagado[k] += m;
+    }
   });
 
-  // net[myKey] = lo que pagué - lo que debía = cuánto me deben (positivo) o debo (negativo)
-  let netMine = 0;
-  const breakdown = [];
-  Object.entries(byItem).forEach(([nombre, ip]) => {
-    const total = ip.r + ip.c + ip.s;
-    if (!total) return;
-    const debio = total * SPLITS[myKey];
-    const pago  = ip[myKey];
-    const diff  = pago - debio; // positivo = me deben, negativo = debo
-    netMine += diff;
-    breakdown.push({ nombre, total, pago, debio, diff });
-  });
+  const net = { r:0, c:0, s:0 };
+  const restoTotal = restoPagado.r + restoPagado.c + restoPagado.s;
+  net.r += restoPagado.r - restoTotal * 0.50;
+  net.c += restoPagado.c - restoTotal * 0.25;
+  net.s += restoPagado.s - restoTotal * 0.25;
 
-  return { netMine, breakdown };
+  const banqTotal = banqPagado.r + banqPagado.c + banqPagado.s;
+  if (banqTotal > 0) {
+    let sr = 0.50, sc = 0.25, ss = 0.25;
+    if (banq && banq.totalInvitados > 0) {
+      sr = (banq.invitadosR||0) / banq.totalInvitados;
+      sc = (banq.invitadosC||0) / banq.totalInvitados;
+      ss = (banq.invitadosS||0) / banq.totalInvitados;
+    }
+    net.r += banqPagado.r - banqTotal * sr;
+    net.c += banqPagado.c - banqTotal * sc;
+    net.s += banqPagado.s - banqTotal * ss;
+  }
+
+  const totalPagado = restoTotal + banqTotal;
+  const netMine = net[myKey];
+  const totalPagadoMine = (restoPagado[myKey]||0) + (banqPagado[myKey]||0);
+  return { netMine, totalPagado, totalPagadoMine, net };
 }
 
 function computeFromPagos(pagos, items) {
@@ -314,30 +322,27 @@ function render() {
     ` : ''}
 
     ${(() => {
-      const { netMine, breakdown } = computeDeuda(pagosData, k);
-      if (!breakdown.length) return '';
-      const fmt = n => '$' + Math.round(Math.abs(n)).toLocaleString('es-CL');
-      const rows = breakdown.map(b => {
-        const sign = b.diff > 0 ? '✅ te deben' : b.diff < 0 ? '⚠️ debes' : '✔ al día';
-        const color = b.diff > 0 ? 'var(--green,#22c55e)' : b.diff < 0 ? 'var(--red,#ef4444)' : 'var(--fg-muted)';
-        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)">
-          <span style="font-size:13px">${b.nombre}</span>
-          <div style="text-align:right">
-            <span style="font-size:13px;font-weight:600;color:${color}">${b.diff !== 0 ? fmt(b.diff) : '✔'}</span>
-            <span style="font-size:11px;color:var(--fg-muted);display:block">${sign} · pagaste ${fmt(b.pago)} de ${fmt(b.debio)}</span>
-          </div>
-        </div>`;
-      }).join('');
-      const totalColor = netMine > 0 ? 'var(--green,#22c55e)' : netMine < 0 ? 'var(--red,#ef4444)' : 'var(--fg-muted)';
-      const totalLabel = netMine > 0 ? 'te deben en total' : netMine < 0 ? 'debes en total' : 'al día';
+      const { netMine, totalPagado, totalPagadoMine } = computeDeuda(pagosData, banqData, k);
+      if (totalPagado < 100) return '';
+      const fmtN = n => '$' + Math.round(Math.abs(n)).toLocaleString('es-CL');
+      const color = netMine > 100 ? 'var(--green,#22c55e)' : netMine < -100 ? 'var(--red,#ef4444)' : 'var(--fg-muted)';
+      const label = netMine > 100 ? '← te deben' : netMine < -100 ? '→ debes' : '✔ al día';
+      const NAMES = { r:'Riedel Palma', c:'Chico', s:'Solís Soto' };
       return `
     <div class="section-label" style="margin-top:8px">Deuda entre familias</div>
     <div class="card" style="margin-bottom:16px">
-      <p style="font-size:12px;color:var(--fg-muted);margin:0 0 10px">Solo aplica a costos compartidos (Ceremonia, Maquilladora) donde una familia puede adelantar por las otras.</p>
-      ${rows}
+      <p style="font-size:12px;color:var(--fg-muted);margin:0 0 12px">Si el matrimonio terminara hoy, esto es lo que le corresponde liquidar a ${NAMES[k]}. Todo va al pozo (split 50/25/25, banquetera por invitados).</p>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span style="color:var(--fg-muted)">Total pagado por todos</span>
+        <span style="font-weight:600">${fmtN(totalPagado)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span style="color:var(--fg-muted)">Pagado por ${NAMES[k]}</span>
+        <span style="font-weight:600">${fmtN(totalPagadoMine)}</span>
+      </div>
       <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 0">
-        <span style="font-size:13px;font-weight:600">Total</span>
-        <span style="font-size:14px;font-weight:700;color:${totalColor}">${netMine !== 0 ? fmt(netMine) : '✔'} <span style="font-size:11px;font-weight:400;color:var(--fg-muted)">${totalLabel}</span></span>
+        <span style="font-size:14px;font-weight:700">Balance</span>
+        <span style="font-size:16px;font-weight:700;color:${color}">${fmtN(netMine)} <span style="font-size:12px;font-weight:400;color:var(--fg-muted)">${label}</span></span>
       </div>
     </div>
       `;
