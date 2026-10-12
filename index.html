@@ -72,11 +72,16 @@ function renderPagos(pagos) {
     <thead><tr><th>Fecha</th><th>Familia</th><th>Concepto</th><th class="num">Monto</th><th>Comprobante</th></tr></thead>
     <tbody>${todos.map(p => {
       const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
-      const comp = `<label style="cursor:pointer;color:var(--accent-fg);font-size:12px;display:inline-flex;align-items:center;gap:4px">
-             📎 Adjuntar
-             <input type="file" accept="image/*,application/pdf" hidden
-               onchange="subirComp('${p.id}', this)">
-           </label>`;
+      const hasComp = p.comprobante && p.comprobante.startsWith('http');
+      const comp = `
+        <div style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap">
+          ${hasComp ? `<a href="${p.comprobante}" target="_blank" style="color:var(--accent-fg);font-size:12px">Ver →</a>` : ''}
+          <label style="cursor:pointer;color:var(--accent-fg);font-size:12px;display:inline-flex;align-items:center;gap:3px">
+            📎 ${hasComp ? 'Otro' : 'Adjuntar'}
+            <input type="file" accept="image/*,application/pdf" hidden
+              onchange="subirComp('${p.id}', this)">
+          </label>
+        </div>`;
       return `<tr>
         <td>${p.fecha}</td>
         <td><span class="badge badge-${k}">${p.familia}</span></td>
@@ -104,7 +109,15 @@ window.subirComp = async function(pagoId, input) {
       fileName: file.name,
     });
     if (res.ok && res.url) {
-      if (cell) cell.innerHTML = `<a href="${res.url}" target="_blank" style="color:var(--accent-fg);font-size:12px">Ver →</a>`;
+      if (cell) cell.innerHTML = `
+        <div style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <a href="${res.url}" target="_blank" style="color:var(--accent-fg);font-size:12px">Ver →</a>
+          <label style="cursor:pointer;color:var(--accent-fg);font-size:12px;display:inline-flex;align-items:center;gap:3px">
+            📎 Otro
+            <input type="file" accept="image/*,application/pdf" hidden
+              onchange="subirComp('${pagoId}', this)">
+          </label>
+        </div>`;
       try { localStorage.removeItem(PAGOS_CACHE_KEY); } catch(e) {}
       toast('Comprobante subido ✓');
     } else {
