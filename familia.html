@@ -131,6 +131,40 @@ function buildItems(banq) {
   return items;
 }
 
+const SHARED_ITEM_NAMES = ['ceremonia', 'maquilladora'];
+
+function computeDeuda(pagos, myKey) {
+  // Solo ítems compartidos (sin presupuesto fijo): una familia puede pagar por las tres.
+  // Cada una debe 50/25/25. Si pagué más de mi parte → me deben; si pagué menos → debo.
+  const SPLITS = { r: 0.50, c: 0.25, s: 0.25 };
+  const byItem = {};
+  (pagos||[]).forEach(p => {
+    const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
+    const m = Number(p.monto)||0;
+    const c = String(p.concepto||'').toLowerCase();
+    const match = SHARED_ITEM_NAMES.find(n => c.includes(n));
+    if (!match) return;
+    const key = match.charAt(0).toUpperCase() + match.slice(1);
+    if (!byItem[key]) byItem[key] = { r:0, c:0, s:0 };
+    byItem[key][k] += m;
+  });
+
+  // net[myKey] = lo que pagué - lo que debía = cuánto me deben (positivo) o debo (negativo)
+  let netMine = 0;
+  const breakdown = [];
+  Object.entries(byItem).forEach(([nombre, ip]) => {
+    const total = ip.r + ip.c + ip.s;
+    if (!total) return;
+    const debio = total * SPLITS[myKey];
+    const pago  = ip[myKey];
+    const diff  = pago - debio; // positivo = me deben, negativo = debo
+    netMine += diff;
+    breakdown.push({ nombre, total, pago, debio, diff });
+  });
+
+  return { netMine, breakdown };
+}
+
 function computeFromPagos(pagos, items) {
   const totalPaid = { r:0, c:0, s:0 };
   const itemPaid  = {};
@@ -278,6 +312,36 @@ function render() {
     <div class="section-label" style="margin-top:8px">Historial de pagos</div>
     <div class="item-list" style="margin-bottom:16px">${famPagos.map(pagoRow).join('')}</div>
     ` : ''}
+
+    ${(() => {
+      const { netMine, breakdown } = computeDeuda(pagosData, k);
+      if (!breakdown.length) return '';
+      const fmt = n => '$' + Math.round(Math.abs(n)).toLocaleString('es-CL');
+      const rows = breakdown.map(b => {
+        const sign = b.diff > 0 ? '✅ te deben' : b.diff < 0 ? '⚠️ debes' : '✔ al día';
+        const color = b.diff > 0 ? 'var(--green,#22c55e)' : b.diff < 0 ? 'var(--red,#ef4444)' : 'var(--fg-muted)';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:13px">${b.nombre}</span>
+          <div style="text-align:right">
+            <span style="font-size:13px;font-weight:600;color:${color}">${b.diff !== 0 ? fmt(b.diff) : '✔'}</span>
+            <span style="font-size:11px;color:var(--fg-muted);display:block">${sign} · pagaste ${fmt(b.pago)} de ${fmt(b.debio)}</span>
+          </div>
+        </div>`;
+      }).join('');
+      const totalColor = netMine > 0 ? 'var(--green,#22c55e)' : netMine < 0 ? 'var(--red,#ef4444)' : 'var(--fg-muted)';
+      const totalLabel = netMine > 0 ? 'te deben en total' : netMine < 0 ? 'debes en total' : 'al día';
+      return `
+    <div class="section-label" style="margin-top:8px">Deuda entre familias</div>
+    <div class="card" style="margin-bottom:16px">
+      <p style="font-size:12px;color:var(--fg-muted);margin:0 0 10px">Solo aplica a costos compartidos (Ceremonia, Maquilladora) donde una familia puede adelantar por las otras.</p>
+      ${rows}
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 0">
+        <span style="font-size:13px;font-weight:600">Total</span>
+        <span style="font-size:14px;font-weight:700;color:${totalColor}">${netMine !== 0 ? fmt(netMine) : '✔'} <span style="font-size:11px;font-weight:400;color:var(--fg-muted)">${totalLabel}</span></span>
+      </div>
+    </div>
+      `;
+    })()}
 
     <div style="margin-top:8px">
       <a href="pagos.html" class="btn btn-primary" style="display:inline-block;text-decoration:none">
