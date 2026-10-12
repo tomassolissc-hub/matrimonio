@@ -34,6 +34,18 @@ import { apiFetch, apiPost, fileToBase64, fmt, initTheme, highlightNav, toast } 
 initTheme();
 highlightNav();
 
+window.eliminarPago = async function(id) {
+  if (!confirm('¿Eliminar este pago?')) return;
+  try {
+    const res = await apiPost({ action: 'deletePago', id });
+    if (res.ok) {
+      toast('Pago eliminado');
+      try { localStorage.removeItem(PAGOS_CACHE_KEY); } catch(e) {}
+      render();
+    } else toast(res.error || 'Error al eliminar', false);
+  } catch(e) { toast(e.message || 'Error', false); }
+};
+
 // ── Totales fijos (sin Banquetera — ésta viene de la API) ─────
 // Suma de: Centro de Eventos, DJ, Fotógrafo, Videógrafo,
 // Maquilladora, Comida extra, Pista de Baile, Ceremonia,
@@ -70,7 +82,7 @@ function renderPagos(pagos) {
   }
   const todos = [...pagos].reverse();
   return `<div class="table-wrap"><table>
-    <thead><tr><th>Fecha</th><th>Familia</th><th>Concepto</th><th class="num">Monto</th><th>Comprobante</th></tr></thead>
+    <thead><tr><th>Fecha</th><th>Familia</th><th>Concepto</th><th class="num">Monto</th><th>Comprobante</th><th></th></tr></thead>
     <tbody>${todos.map(p => {
       const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
       const urls = p.comprobante
@@ -95,6 +107,7 @@ function renderPagos(pagos) {
         <td>${p.concepto}</td>
         <td class="num">$${fmt(p.monto)}</td>
         <td id="comp-cell-${p.id}">${comp}</td>
+        <td><button onclick="eliminarPago('${p.id}')" style="background:none;border:none;cursor:pointer;color:var(--fg-faint);font-size:16px;padding:2px 6px;line-height:1" title="Eliminar">×</button></td>
       </tr>`;
     }).join('')}</tbody>
   </table></div>
