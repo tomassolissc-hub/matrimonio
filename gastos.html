@@ -5,6 +5,55 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Gastos — Matrimonio 2026</title>
 <link rel="stylesheet" href="style.css">
+<style>
+.tab-btn {
+  padding: 8px 18px;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--fg-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color .15s, border-color .15s;
+}
+.tab-btn.active {
+  color: var(--accent-fg, #3b82f6);
+  border-bottom-color: var(--accent-fg, #3b82f6);
+}
+.tab-btn:hover:not(.active) {
+  color: var(--fg);
+}
+/* Mini stacked bar */
+.pay-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: var(--border);
+  min-width: 80px;
+  width: 100%;
+}
+.pay-bar-seg {
+  height: 100%;
+  transition: width .3s;
+}
+/* Mini % bar */
+.pct-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: var(--border);
+  min-width: 60px;
+}
+.pct-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width .3s;
+}
+</style>
 </head>
 <body>
 
@@ -27,7 +76,14 @@
   <!-- Stat tiles siempre en bruto -->
   <div class="stat-grid" style="margin-bottom:24px" id="tiles"></div>
 
-  <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center">
+  <!-- Tabs -->
+  <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border)">
+    <button class="tab-btn active" id="tab-dist" onclick="setTab('dist')">Distribución</button>
+    <button class="tab-btn" id="tab-pagos" onclick="setTab('pagos')">Pagos</button>
+  </div>
+
+  <!-- Controles distribución -->
+  <div id="ctrl-dist" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
     <button class="btn btn-primary" id="btn-mode" onclick="toggleMode()">Ver neto (sin IVA)</button>
     <button class="btn" id="btn-r" onclick="toggleFam('r')">Riedel Palma</button>
     <button class="btn" id="btn-c" onclick="toggleFam('c')">Chico</button>
@@ -44,8 +100,6 @@ initTheme();
 highlightNav();
 
 // ── Items fijos (excluye Banquetera — viene de la API) ────────
-// Neto según contratos. Bruto = neto × 1.19. Distribución 50/25/25
-// Maquilladora y Ceremonia sin precio confirmado aún → ceros
 const ITEMS_FIXED = [
   { item:'Centro de Eventos', rn:4423284, rb:5263708, cn:2211642, cb:2631854, sn:2211642, sb:2631854, pr:2114095, pc:0,      ps:2150000 },
   { item:'DJ',                rn:777311,  rb:925000,  cn:388655,  cb:462500,  sn:388655,  sb:462500,  pr:0,       pc:925000, ps:0       },
@@ -61,6 +115,7 @@ const ITEMS_FIXED = [
 ];
 
 let mode   = 'bruto';
+let tab    = 'dist';
 let vis    = { r:true, c:true, s:true };
 let ITEMS  = ITEMS_FIXED.slice();
 let TOTALS = {};
@@ -77,6 +132,14 @@ function computeTotals(items) {
     return acc;
   }, { rb:0, rn:0, cb:0, cn:0, sb:0, sn:0, tb:0, tn:0, pr:0, pc:0, ps:0 });
 }
+
+window.setTab = t => {
+  tab = t;
+  document.getElementById('tab-dist').classList.toggle('active', t === 'dist');
+  document.getElementById('tab-pagos').classList.toggle('active', t === 'pagos');
+  document.getElementById('ctrl-dist').style.display = t === 'dist' ? 'flex' : 'none';
+  renderTable();
+};
 
 window.toggleMode = () => {
   mode = mode === 'neto' ? 'bruto' : 'neto';
@@ -135,16 +198,52 @@ window.toggleFam = k => {
   renderTable();
 };
 
+// ── Mini stacked payment bar ──────────────────────────────────
+function stackedBar(row) {
+  const total = row.rb + row.cb + row.sb;
+  if (!total) return '<span style="color:var(--fg-faint);font-size:12px">—</span>';
+  const pr = Math.min(row.pr, row.rb);
+  const pc = Math.min(row.pc, row.cb);
+  const ps = Math.min(row.ps, row.sb);
+  const pct = v => Math.min(100, Math.round(v / total * 100));
+  return `<div style="display:flex;flex-direction:column;gap:3px;min-width:80px">
+    <div class="pay-bar">
+      <div class="pay-bar-seg" style="width:${pct(pr)}%;background:var(--r-color)"></div>
+      <div class="pay-bar-seg" style="width:${pct(pc)}%;background:var(--c-color)"></div>
+      <div class="pay-bar-seg" style="width:${pct(ps)}%;background:var(--s-color)"></div>
+    </div>
+    <div style="font-size:10px;color:var(--fg-faint);text-align:right">${pct(pr+pc+ps)}%</div>
+  </div>`;
+}
+
+// ── Mini % bar for dist tab ────────────────────────────────────
+function pctBar(pag, total) {
+  if (!total) return '<span style="color:var(--fg-faint);font-size:12px">—</span>';
+  const pct = Math.min(100, Math.round(pag / total * 100));
+  const color = pct >= 100 ? 'var(--s-color)' : pct > 0 ? 'var(--c-color)' : 'var(--border)';
+  return `<div style="display:flex;flex-direction:column;gap:3px;min-width:60px">
+    <div class="pct-bar"><div class="pct-fill" style="width:${pct}%;background:${color}"></div></div>
+    <div style="font-size:10px;color:var(--fg-faint);text-align:right">${pct}%</div>
+  </div>`;
+}
+
 function renderTable() {
   const m = mode;
+  const CONF = computeTotals(ITEMS.filter(x => !x.est));
+  const EST  = computeTotals(ITEMS.filter(x =>  x.est));
+
+  if (tab === 'dist') {
+    renderDist(m, CONF, EST);
+  } else {
+    renderPagos(CONF, EST);
+  }
+}
+
+function renderDist(m, CONF, EST) {
   const cols = [];
   if (vis.r) cols.push({ key: m==='neto'?'rn':'rb', label:'Riedel', cls:'badge-r' });
   if (vis.c) cols.push({ key: m==='neto'?'cn':'cb', label:'Chico',  cls:'badge-c' });
   if (vis.s) cols.push({ key: m==='neto'?'sn':'sb', label:'Solís',  cls:'badge-s' });
-
-  // Subtotales separados: confirmado vs estimado
-  const CONF = computeTotals(ITEMS.filter(x => !x.est));
-  const EST  = computeTotals(ITEMS.filter(x =>  x.est));
 
   function visTotal(T) {
     return (vis.r?T[m==='neto'?'rn':'rb']:0)+
@@ -159,14 +258,13 @@ function renderTable() {
           <th>Ítem</th>
           ${cols.map(c=>`<th class="num"><span class="badge ${c.cls}">${c.label}</span></th>`).join('')}
           <th class="num">Total</th>
-          <th class="num" style="color:var(--r-color)">Pag. R</th>
-          <th class="num" style="color:var(--c-color)">Pag. C</th>
-          <th class="num" style="color:var(--s-color)">Pag. S</th>
-          <th class="num">% Pag.</th>
+          <th>Pagado</th>
         </tr></thead>
         <tbody>
           ${ITEMS.map(row=>{
             const est = row.est;
+            const rowTotal = row.rb + row.cb + row.sb;
+            const rowPag   = row.pr + row.pc + row.ps;
             return `<tr${est?' style="color:var(--fg-muted)"':''}>
               <td>${est
                 ? `<em style="font-style:italic">${row.item}</em>`
@@ -178,17 +276,7 @@ function renderTable() {
                 (vis.c?(m==='neto'?row.cn:row.cb):0)+
                 (vis.s?(m==='neto'?row.sn:row.sb):0)
               )}</td>
-              <td class="num" style="color:var(--r-color)">$${fmt(row.pr)}</td>
-              <td class="num" style="color:var(--c-color)">$${fmt(row.pc)}</td>
-              <td class="num" style="color:var(--s-color)">$${fmt(row.ps)}</td>
-              ${(()=>{
-                const total = row.rb + row.cb + row.sb;
-                const pag   = row.pr + row.pc + row.ps;
-                if (!total) return '<td class="num" style="color:var(--fg-faint)">—</td>';
-                const pct = Math.min(100, Math.round(pag / total * 100));
-                const color = pct >= 100 ? 'var(--s-color)' : pct > 0 ? 'var(--c-color)' : 'var(--fg-faint)';
-                return `<td class="num" style="font-weight:600;color:${color}">${pct}%</td>`;
-              })()}
+              <td style="padding-right:8px">${pctBar(rowPag, rowTotal)}</td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -200,17 +288,12 @@ function renderTable() {
           ].map(({T,label,style,em})=>{
             const tb  = T.rb + T.cb + T.sb;
             const pag = T.pr + T.pc + T.ps;
-            const pct = tb > 0 ? Math.min(100,Math.round(pag/tb*100)) : null;
-            const pctColor = pct === null ? 'var(--fg-faint)' : pct>=100 ? 'var(--s-color)' : pct>0 ? 'var(--c-color)' : 'var(--fg-faint)';
             const w = v => em ? `<em>$${fmt(v)}</em>` : `$${fmt(v)}`;
             return `<tr style="${style}">
               <td>${em?`<em>${label}</em>`:label}</td>
               ${cols.map(c=>`<td class="num">${w(T[c.key])}</td>`).join('')}
               <td class="num">${w(visTotal(T))}</td>
-              <td class="num" style="color:var(--r-color)">${w(T.pr)}</td>
-              <td class="num" style="color:var(--c-color)">${w(T.pc)}</td>
-              <td class="num" style="color:var(--s-color)">${w(T.ps)}</td>
-              <td class="num" style="font-weight:600;color:${pctColor}">${pct!==null?pct+'%':'—'}</td>
+              <td style="padding-right:8px">${pctBar(pag, tb)}</td>
             </tr>`;
           }).join('')}
         </tfoot>
@@ -220,6 +303,66 @@ function renderTable() {
       Modo: <strong>${m==='neto'?'Neto (sin IVA — 9,5% Banquetera / 19% resto)':'Bruto (con IVA — 9,5% Banquetera / 19% resto)'}</strong>
       · <em>Ítems en cursiva son valores referenciales sin contrato firmado.</em>
     </p>`;
+}
+
+function renderPagos(CONF, EST) {
+  document.getElementById('root').innerHTML = `
+    <div class="card" style="padding:0">
+      <div class="table-wrap"><table>
+        <thead><tr>
+          <th>Ítem</th>
+          <th class="num">Costo total</th>
+          <th style="min-width:110px">R / C / S</th>
+          <th class="num">Pagado</th>
+          <th class="num">Pendiente</th>
+        </tr></thead>
+        <tbody>
+          ${ITEMS.map(row=>{
+            const est   = row.est;
+            const total = row.rb + row.cb + row.sb;
+            const pag   = row.pr + row.pc + row.ps;
+            const pend  = Math.max(0, total - pag);
+            return `<tr${est?' style="color:var(--fg-muted)"':''}>
+              <td>${est
+                ? `<em>${row.item}</em>`
+                : `<strong>${row.item}</strong>`
+              }${est?' <span style="font-size:10px;opacity:0.6">(ref.)</span>':''}</td>
+              <td class="num">$${fmt(total)}</td>
+              <td style="padding-right:8px">${stackedBar(row)}</td>
+              <td class="num" style="color:${pag>0?'var(--s-color)':'var(--fg-faint)'}">$${fmt(pag)}</td>
+              <td class="num" style="color:${pend>0?'var(--r-color)':'var(--fg-faint)'}">$${pend>0?fmt(pend):'—'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+        <tfoot>
+          ${[
+            { T:CONF,   label:'Confirmado', style:'font-weight:600;border-top:2px solid var(--border)', em:false },
+            { T:EST,    label:'+ Estimado', style:'color:var(--fg-muted);font-size:13px', em:true },
+            { T:TOTALS, label:'TOTAL',      style:'font-weight:700;border-top:1px solid var(--border)', em:false },
+          ].map(({T,label,style,em})=>{
+            const tb  = T.rb + T.cb + T.sb;
+            const pag = T.pr + T.pc + T.ps;
+            const pend = Math.max(0, tb - pag);
+            const w = v => em ? `<em>$${fmt(v)}</em>` : `$${fmt(v)}`;
+            // tfoot stacked bar using totals
+            const fakeRow = { rb:T.rb, cb:T.cb, sb:T.sb, pr:T.pr, pc:T.pc, ps:T.ps };
+            return `<tr style="${style}">
+              <td>${em?`<em>${label}</em>`:label}</td>
+              <td class="num">${w(tb)}</td>
+              <td style="padding-right:8px">${em ? '' : stackedBar(fakeRow)}</td>
+              <td class="num" style="color:${pag>0?'var(--s-color)':'var(--fg-faint)'}">${w(pag)}</td>
+              <td class="num" style="color:${pend>0?'var(--r-color)':'var(--fg-faint)'}">${w(pend)}</td>
+            </tr>`;
+          }).join('')}
+        </tfoot>
+      </table></div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:16px;font-size:12px;color:var(--fg-muted);flex-wrap:wrap">
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--r-color);vertical-align:middle;margin-right:4px"></span>Riedel Palma</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--c-color);vertical-align:middle;margin-right:4px"></span>Chico</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--s-color);vertical-align:middle;margin-right:4px"></span>Solís Soto</span>
+      <span style="margin-left:4px;color:var(--fg-faint)"><em>Ítems en cursiva son valores referenciales.</em></span>
+    </div>`;
 }
 
 function computePagado(pagos) {
@@ -237,7 +380,6 @@ async function init() {
   renderTiles();
   renderTable();
 
-  // Banquetera y pagos en paralelo
   try {
     const [banq, pagos] = await Promise.all([
       apiFetch('banquetera'),
