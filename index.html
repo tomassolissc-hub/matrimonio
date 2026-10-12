@@ -24,7 +24,7 @@
 
 <!-- Modal editar pago -->
 <div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center;padding:20px">
-  <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:24px;width:100%;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+  <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:24px;width:100%;max-width:400px;box-shadow:0 16px 48px rgba(0,0,0,.35)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
       <span style="font-weight:600;font-size:15px">Editar pago</span>
       <button onclick="cerrarModal()" style="background:none;border:none;cursor:pointer;color:var(--fg-muted);font-size:20px;line-height:1">×</button>
@@ -128,60 +128,75 @@ function computeZeroBudgetPaid(pagos) {
   return z;
 }
 
-// ── Liquidación entre familias ────────────────────────────────
-// Solo aplica a ítems sin presupuesto fijo (Ceremonia, Maquilladora):
-// son costos COMPARTIDOS donde una familia puede pagar por las otras.
-// Para el resto, cada familia paga su cuota al proveedor directamente
-// → no genera deuda entre familias.
-const SHARED_ITEM_NAMES = ['ceremonia', 'maquilladora'];
+// ── Liquidación Tricount ─────────────────────────────────────
+// Todo va al pozo. Cada familia debía pagar 50/25/25 del total
+// (excepto banquetera que tiene su propio split por invitados).
+// net[k] = lo que pagó - lo que debía → positivo = acreedor, negativo = deudor.
 
-function computeLiquidacion(pagos) {
-  const byItem = {}; // { 'Ceremonia': {r,c,s} }
+function computeLiquidacion(pagos, banq) {
+  // Separar pagos banquetera vs resto
+  const banqPagado = { r:0, c:0, s:0 };
+  const restoPagado = { r:0, c:0, s:0 }; // todo lo demás → split 50/25/25
 
   (pagos||[]).forEach(p => {
     const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
     const m = Number(p.monto)||0;
     const c = String(p.concepto||'').toLowerCase();
-    const match = SHARED_ITEM_NAMES.find(n => c.includes(n));
-    if (!match) return;
-    // Capitalize key for display
-    const key = match.charAt(0).toUpperCase() + match.slice(1);
-    if (!byItem[key]) byItem[key] = { r:0, c:0, s:0 };
-    byItem[key][k] += m;
+    if (c.includes('banquetera') || c.includes('catering') || c.includes('comida')) {
+      banqPagado[k] += m;
+    } else {
+      restoPagado[k] += m;
+    }
   });
 
-  // Net balance: positivo = pagó de más (acreedor); negativo = debe (deudor)
   const net = { r:0, c:0, s:0 };
-  Object.values(byItem).forEach(ip => {
-    const total = ip.r + ip.c + ip.s;
-    if (total === 0) return;
-    net.r += ip.r - total * 0.50;
-    net.c += ip.c - total * 0.25;
-    net.s += ip.s - total * 0.25;
-  });
 
-  return { net, byItem };
+  // Resto: 50/25/25
+  const restoTotal = restoPagado.r + restoPagado.c + restoPagado.s;
+  net.r += restoPagado.r - restoTotal * 0.50;
+  net.c += restoPagado.c - restoTotal * 0.25;
+  net.s += restoPagado.s - restoTotal * 0.25;
+
+  // Banquetera: split por invitados desde API (o 50/25/25 si no hay data)
+  const banqTotal = banqPagado.r + banqPagado.c + banqPagado.s;
+  if (banqTotal > 0) {
+    let sr = 0.50, sc = 0.25, ss = 0.25;
+    if (banq && banq.totalInvitados > 0) {
+      sr = (banq.invitadosR||0) / banq.totalInvitados;
+      sc = (banq.invitadosC||0) / banq.totalInvitados;
+      ss = (banq.invitadosS||0) / banq.totalInvitados;
+    }
+    net.r += banqPagado.r - banqTotal * sr;
+    net.c += banqPagado.c - banqTotal * sc;
+    net.s += banqPagado.s - banqTotal * ss;
+  }
+
+  return { net, restoPagado, banqPagado, restoTotal, banqTotal };
 }
 
 function renderLiquidacion(pagos) {
-  const { net, byItem } = computeLiquidacion(pagos);
+  const banq = _lastBanq;
+  const { net, restoPagado, banqPagado, restoTotal, banqTotal } = computeLiquidacion(pagos, banq);
   const NAMES = { r:'Riedel Palma', c:'Chico', s:'Solís Soto' };
   const badge = k => `<span class="badge badge-${k}">${NAMES[k]}</span>`;
 
-  const allZero = Object.values(net).every(v => Math.abs(v) < 100);
-  if (allZero && Object.keys(byItem).length === 0) {
-    return `<p style="font-size:13px;color:var(--fg-muted);padding:4px 0">Sin gastos compartidos pagados aún. Aparecerán aquí cuando una familia pague por ítems comunes (Ceremonia, Maquilladora).</p>`;
-  }
-  if (allZero) {
-    return `<p style="font-size:13px;color:var(--fg-muted);padding:4px 0">✅ Todo en orden — cada familia ha pagado exactamente su parte de los gastos compartidos.</p>`;
+  const totalGeneral = restoTotal + banqTotal;
+  if (totalGeneral < 100) {
+    return `<p style="font-size:13px;color:var(--fg-muted);padding:4px 0">Aún no hay pagos registrados. Cuando cada familia empiece a pagar, acá aparece quién le debe a quién.</p>`;
   }
 
-  // Calcular transferencias mínimas para liquidar
+  const allZero = Object.values(net).every(v => Math.abs(v) < 100);
+  if (allZero) {
+    return `<p style="font-size:13px;color:var(--fg-muted);padding:4px 0">✅ Todo en orden — cada familia ha pagado exactamente su parte.</p>`;
+  }
+
+  // Transferencias mínimas para liquidar (algoritmo greedy)
   const bal = { r: net.r, c: net.c, s: net.s };
   const transfers = [];
   for (let i = 0; i < 6; i++) {
-    const [credK, credV] = Object.entries(bal).sort((a,b) => b[1]-a[1])[0];
-    const [debK,  debV]  = Object.entries(bal).sort((a,b) => a[1]-b[1])[0];
+    const sorted = Object.entries(bal).sort((a,b) => b[1]-a[1]);
+    const [credK, credV] = sorted[0];
+    const [debK,  debV]  = sorted[sorted.length-1];
     if (credV < 100 || debV > -100) break;
     const amount = Math.min(credV, -debV);
     transfers.push({ from: debK, to: credK, amount: Math.round(amount) });
@@ -189,33 +204,35 @@ function renderLiquidacion(pagos) {
     bal[debK]  += amount;
   }
 
-  // Detalle por ítem
-  const itemDetail = Object.entries(byItem).map(([nombre, ip]) => {
-    const total = ip.r + ip.c + ip.s;
-    if (total === 0) return '';
-    return `<div style="font-size:12px;color:var(--fg-muted);padding:6px 0 6px 2px;border-bottom:1px solid var(--border)">
-      <span style="font-weight:600;color:var(--fg)">${nombre}</span>
-      <span style="margin:0 8px">·</span>Total pagado: <b>$${fmt(total)}</b>
-      <span style="margin:0 6px;color:var(--fg-faint)">—</span>
-      ${['r','c','s'].filter(k => ip[k]>0).map(k => `${badge(k)} $${fmt(ip[k])}`).join(' · ')}
+  // Resumen de quién puso qué
+  const resumenRows = ['r','c','s'].map(k => {
+    const total = (restoPagado[k]||0) + (banqPagado[k]||0);
+    const color = net[k] > 100 ? 'var(--green,#22c55e)' : net[k] < -100 ? 'var(--red,#ef4444)' : 'var(--fg-muted)';
+    const tag = net[k] > 100 ? '← te deben' : net[k] < -100 ? '→ debes' : '✔ al día';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
+      ${badge(k)}
+      <span style="color:var(--fg-muted)">pagó $${fmt(total)}</span>
+      <span style="font-weight:600;color:${color}">${tag} $${fmt(Math.abs(net[k]))}</span>
     </div>`;
   }).join('');
 
-  const transferRows = transfers.map(t => `
+  const transferRows = transfers.length
+    ? transfers.map(t => `
     <div style="display:flex;align-items:center;gap:8px;padding:11px 0;border-bottom:1px solid var(--border)">
       ${badge(t.from)}
-      <span style="color:var(--fg-faint);font-size:16px;margin:0 2px">→</span>
+      <span style="color:var(--fg-faint);font-size:18px">→</span>
       ${badge(t.to)}
       <span style="flex:1"></span>
       <span style="font-size:16px;font-weight:700;font-variant-numeric:tabular-nums">$${fmt(t.amount)}</span>
-    </div>`).join('');
+    </div>`).join('')
+    : `<p style="font-size:13px;color:var(--fg-muted);padding:8px 0">✅ Sin transferencias pendientes.</p>`;
 
   return `
-    <div style="font-size:11px;font-weight:600;color:var(--fg-muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px">Gastos compartidos pagados</div>
-    ${itemDetail}
+    <div style="font-size:11px;font-weight:600;color:var(--fg-muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px">Total pagado: $${fmt(totalGeneral)}</div>
+    ${resumenRows}
     <div style="font-size:11px;font-weight:600;color:var(--fg-muted);letter-spacing:.05em;text-transform:uppercase;margin:16px 0 6px">Transferencias para quedar a mano</div>
     ${transferRows}
-    <p style="font-size:11px;color:var(--fg-faint);margin-top:10px">Split 50/25/25 sobre gastos comunes pagados (Ceremonia, Maquilladora). El resto cada familia lo paga directamente.</p>
+    <p style="font-size:11px;color:var(--fg-faint);margin-top:10px">Split 50/25/25 sobre todo excepto banquetera (que va por invitados). Si el matrimonio terminara hoy, esto es lo que se debería transferir.</p>
   `;
 }
 
