@@ -72,9 +72,7 @@ function renderPagos(pagos) {
     <thead><tr><th>Fecha</th><th>Familia</th><th>Concepto</th><th class="num">Monto</th><th>Comprobante</th></tr></thead>
     <tbody>${todos.map(p => {
       const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
-      const comp = p.comprobante
-        ? `<a href="${p.comprobante}" target="_blank" style="color:var(--accent-fg);font-size:12px">Ver →</a>`
-        : `<label style="cursor:pointer;color:var(--accent-fg);font-size:12px;display:inline-flex;align-items:center;gap:4px">
+      const comp = `<label style="cursor:pointer;color:var(--accent-fg);font-size:12px;display:inline-flex;align-items:center;gap:4px">
              📎 Adjuntar
              <input type="file" accept="image/*,application/pdf" hidden
                onchange="subirComp('${p.id}', this)">
