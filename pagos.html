@@ -97,6 +97,15 @@
 <script type="module">
 import { apiFetch, apiPost, fileToBase64, fmt, initTheme, highlightNav, showError, toast } from './api.js';
 
+window.eliminarPago = async function(id) {
+  if (!confirm('¿Eliminar este pago?')) return;
+  try {
+    const res = await apiPost({ action: 'deletePago', id });
+    if (res.ok) { toast('Pago eliminado'); loadPagos(); }
+    else toast(res.error || 'Error al eliminar', false);
+  } catch(e) { toast(e.message || 'Error', false); }
+};
+
 initTheme();
 highlightNav();
 
@@ -214,6 +223,7 @@ async function loadPagos() {
             <th>Concepto</th>
             <th class="num">Monto</th>
             <th>Comprobante</th>
+            <th></th>
           </tr></thead>
           <tbody>
             ${rev.map(p => `<tr>
@@ -224,6 +234,7 @@ async function loadPagos() {
               <td>${p.comprobante
                 ? `<a href="${p.comprobante}" target="_blank" class="btn" style="font-size:11px;padding:4px 10px">Ver 🔗</a>`
                 : '<span style="color:var(--fg-faint);font-size:12px">—</span>'}</td>
+              <td><button onclick="eliminarPago('${p.id}')" style="background:none;border:none;cursor:pointer;color:var(--fg-faint);font-size:16px;padding:2px 6px;line-height:1" title="Eliminar">×</button></td>
             </tr>`).join('')}
           </tbody>
         </table>
