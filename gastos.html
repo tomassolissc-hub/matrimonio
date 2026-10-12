@@ -24,8 +24,11 @@
 <main class="page">
   <h1 class="page-title">Gastos detallados</h1>
 
+  <!-- Stat tiles siempre en bruto -->
+  <div class="stat-grid" style="margin-bottom:24px" id="tiles"></div>
+
   <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center">
-    <button class="btn btn-primary" id="btn-mode" onclick="toggleMode()">Ver bruto (con IVA)</button>
+    <button class="btn btn-primary" id="btn-mode" onclick="toggleMode()">Ver neto (sin IVA)</button>
     <button class="btn" id="btn-r" onclick="toggleFam('r')">Riedel Palma</button>
     <button class="btn" id="btn-c" onclick="toggleFam('c')">Chico</button>
     <button class="btn" id="btn-s" onclick="toggleFam('s')">Solís Soto</button>
@@ -59,7 +62,7 @@ const TOTALS = {
   tb:59012145, tn:51369944, pr:4576595,  pc:1949000,  ps:3650000,
 };
 
-let mode = 'neto';
+let mode = 'bruto';
 let vis  = { r:true, c:true, s:true };
 
 window.toggleMode = () => {
@@ -67,6 +70,22 @@ window.toggleMode = () => {
   document.getElementById('btn-mode').textContent = mode === 'neto' ? 'Ver bruto (con IVA)' : 'Ver neto (sin IVA)';
   renderTable();
 };
+
+function renderTiles() {
+  const tiles = [
+    { k:'r', label:'Riedel Palma', cls:'r', rb:TOTALS.rb, rn:TOTALS.rn },
+    { k:'c', label:'Chico',        cls:'c', rb:TOTALS.cb, rn:TOTALS.cn },
+    { k:'s', label:'Solís Soto',   cls:'s', rb:TOTALS.sb, rn:TOTALS.sn },
+    { k:'t', label:'Total',        cls:'t', rb:TOTALS.tb, rn:TOTALS.tn },
+  ];
+  document.getElementById('tiles').innerHTML = tiles.map(t => `
+    <div class="stat-tile ${t.cls}">
+      <div class="label">${t.label}</div>
+      <div class="value">$${fmt(t.rb)}</div>
+      <div class="sub">neto $${fmt(t.rn)}</div>
+    </div>
+  `).join('');
+}
 
 window.toggleFam = k => {
   vis[k] = !vis[k];
@@ -97,7 +116,11 @@ function renderTable() {
           ${ITEMS.map(row=>`<tr>
             <td><strong>${row.item}</strong></td>
             ${cols.map(c=>`<td class="num">$${fmt(row[c.key])}</td>`).join('')}
-            <td class="num" style="font-weight:500">$${fmt(row[tk])}</td>
+            <td class="num" style="font-weight:500">$${fmt(
+              (vis.r?(m==='neto'?row.rn:row.rb):0)+
+              (vis.c?(m==='neto'?row.cn:row.cb):0)+
+              (vis.s?(m==='neto'?row.sn:row.sb):0)
+            )}</td>
             <td class="num" style="color:var(--r-color)">$${fmt(row.pr)}</td>
             <td class="num" style="color:var(--c-color)">$${fmt(row.pc)}</td>
             <td class="num" style="color:var(--s-color)">$${fmt(row.ps)}</td>
@@ -106,7 +129,11 @@ function renderTable() {
         <tfoot><tr style="font-weight:600;border-top:2px solid var(--border)">
           <td>TOTAL</td>
           ${cols.map(c=>`<td class="num">$${fmt(TOTALS[c.key])}</td>`).join('')}
-          <td class="num">$${fmt(TOTALS[tk])}</td>
+          <td class="num">$${fmt(
+            (vis.r?TOTALS[m==='neto'?'rn':'rb']:0)+
+            (vis.c?TOTALS[m==='neto'?'cn':'cb']:0)+
+            (vis.s?TOTALS[m==='neto'?'sn':'sb']:0)
+          )}</td>
           <td class="num" style="color:var(--r-color)">$${fmt(TOTALS.pr)}</td>
           <td class="num" style="color:var(--c-color)">$${fmt(TOTALS.pc)}</td>
           <td class="num" style="color:var(--s-color)">$${fmt(TOTALS.ps)}</td>
@@ -118,6 +145,7 @@ function renderTable() {
     </p>`;
 }
 
+renderTiles();
 renderTable();
 </script>
 </body>
