@@ -172,56 +172,56 @@ function renderPanel(pagos) {
 }
 
 const PAGOS_CACHE_KEY = 'panel_pagos_v1';
+const BANQ_CACHE_KEY  = 'panel_banq_v1';
 
-function getCachedPagos() {
+function getCached(key) {
   try {
-    const raw = localStorage.getItem(PAGOS_CACHE_KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) return null;
     const { ts, data } = JSON.parse(raw);
-    // Usar caché por hasta 10 minutos
     if (Date.now() - ts < 10 * 60 * 1000) return data;
   } catch(e) {}
   return null;
 }
-function setCachedPagos(data) {
-  try { localStorage.setItem(PAGOS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch(e) {}
+function setCached(key, data) {
+  try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })); } catch(e) {}
+}
+
+function applyBanq(banq) {
+  if (!banq || banq.error) return;
+  BRUTO = { r: FIXED.r.b + (banq.rb||0), c: FIXED.c.b + (banq.cb||0), s: FIXED.s.b + (banq.sb||0) };
+  NETO  = { r: FIXED.r.n + (banq.rn||0), c: FIXED.c.n + (banq.cn||0), s: FIXED.s.n + (banq.sn||0) };
+  BRUTO_TOTAL = BRUTO.r + BRUTO.c + BRUTO.s;
+  NETO_TOTAL  = NETO.r  + NETO.c  + NETO.s;
 }
 
 async function render() {
-  const cached = getCachedPagos();
+  const cachedPagos = getCached(PAGOS_CACHE_KEY);
+  const cachedBanq  = getCached(BANQ_CACHE_KEY);
 
-  // Render inmediato con caché (o vacío) y totales fijos sin banquetera
+  // Render inmediato con lo que hay en caché
   BRUTO = { r: FIXED.r.b, c: FIXED.c.b, s: FIXED.s.b };
   NETO  = { r: FIXED.r.n, c: FIXED.c.n, s: FIXED.s.n };
   BRUTO_TOTAL = BRUTO.r + BRUTO.c + BRUTO.s;
   NETO_TOTAL  = NETO.r  + NETO.c  + NETO.s;
-  renderPanel(cached || []);
+  applyBanq(cachedBanq);           // totales completos si ya tenemos banquetera cacheada
+  renderPanel(cachedPagos || []);
 
-  // Actualizar banquetera y pagos en paralelo
+  // Actualizar desde la API en segundo plano
   try {
     const [banq, pagos] = await Promise.all([
       apiFetch('banquetera'),
       apiFetch('pagos'),
     ]);
     if (banq && !banq.error) {
-      BRUTO = {
-        r: FIXED.r.b + (banq.rb || 0),
-        c: FIXED.c.b + (banq.cb || 0),
-        s: FIXED.s.b + (banq.sb || 0),
-      };
-      NETO = {
-        r: FIXED.r.n + (banq.rn || 0),
-        c: FIXED.c.n + (banq.cn || 0),
-        s: FIXED.s.n + (banq.sn || 0),
-      };
-      BRUTO_TOTAL = BRUTO.r + BRUTO.c + BRUTO.s;
-      NETO_TOTAL  = NETO.r  + NETO.c  + NETO.s;
+      setCached(BANQ_CACHE_KEY, banq);
+      applyBanq(banq);
     }
     const data = pagos || [];
-    setCachedPagos(data);
+    setCached(PAGOS_CACHE_KEY, data);
     renderPanel(data);
   } catch(e) {
-    if (!cached) {
+    if (!cachedPagos) {
       const card = document.getElementById('pagos-card');
       if (card) card.innerHTML = `<p style="color:var(--fg-muted);font-size:13px;padding:8px 0">
         No se pudieron cargar los pagos. <a href="pagos.html" style="color:var(--accent-fg)">Ir a pagos →</a>
