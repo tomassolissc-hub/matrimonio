@@ -45,8 +45,27 @@
       </div>
     </div>
     <div class="form-group" style="margin-bottom:12px">
-      <label class="form-label">Concepto</label>
-      <input class="form-input" id="f-concepto" type="text" placeholder="Ej: Abono banquetera, Pie centro de eventos…">
+      <label class="form-label">Ítem</label>
+      <select class="form-select" id="f-item" onchange="onItemChange()">
+        <option value="">— Seleccionar ítem —</option>
+        <option value="Centro de Eventos">Centro de Eventos</option>
+        <option value="Banquetera">Banquetera</option>
+        <option value="DJ">DJ</option>
+        <option value="Fotógrafo">Fotógrafo</option>
+        <option value="Videógrafo">Videógrafo</option>
+        <option value="Maquilladora">Maquilladora</option>
+        <option value="Comida extra">Comida extra</option>
+        <option value="Pista de Baile">Pista de Baile</option>
+        <option value="Ceremonia">Ceremonia</option>
+        <option value="Saxofonista">Saxofonista</option>
+        <option value="Flores">Flores</option>
+        <option value="Extras">Extras</option>
+        <option value="Otro">Otro…</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;display:none" id="detalle-wrap">
+      <label class="form-label" id="detalle-label">Detalle (opcional)</label>
+      <input class="form-input" id="f-detalle" type="text" placeholder="Ej: Pie inicial, 2do abono…">
     </div>
 
     <!-- Upload comprobante -->
@@ -81,6 +100,27 @@ import { apiFetch, apiPost, fileToBase64, fmt, initTheme, highlightNav, showErro
 initTheme();
 highlightNav();
 
+window.onItemChange = () => {
+  const item  = document.getElementById('f-item').value;
+  const wrap  = document.getElementById('detalle-wrap');
+  const label = document.getElementById('detalle-label');
+  const input = document.getElementById('f-detalle');
+  if (!item) {
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = '';
+  if (item === 'Otro') {
+    label.textContent = 'Especificar concepto *';
+    input.placeholder = 'Ej: Mozo extra, torta…';
+    input.required = true;
+  } else {
+    label.textContent = 'Detalle (opcional)';
+    input.placeholder = 'Ej: Pie inicial, 2do abono…';
+    input.required = false;
+  }
+};
+
 const listEl   = document.getElementById('pagos-list');
 const areaEl   = document.getElementById('upload-area');
 const fileEl   = document.getElementById('f-file');
@@ -108,12 +148,14 @@ function setFile(f) {
 window.submitPago = async () => {
   const familia  = document.getElementById('f-familia').value;
   const monto    = parseFloat(document.getElementById('f-monto').value);
-  const concepto = document.getElementById('f-concepto').value.trim();
+  const item     = document.getElementById('f-item').value;
+  const detalle  = document.getElementById('f-detalle').value.trim();
+  const concepto = item === 'Otro' ? (detalle || 'Otro') : item + (detalle ? ` — ${detalle}` : '');
   const file     = fileEl._file;
 
   if (!familia)        { toast('Selecciona una familia', false); return; }
   if (!monto || monto <= 0) { toast('Ingresa un monto válido', false); return; }
-  if (!concepto)       { toast('Ingresa un concepto', false); return; }
+  if (!item)           { toast('Selecciona un ítem', false); return; }
 
   const btn = document.getElementById('btn-submit');
   btn.disabled = true;
@@ -138,9 +180,11 @@ window.submitPago = async () => {
 
     toast('✅ Pago registrado correctamente');
     // Limpiar form
-    document.getElementById('f-familia').value  = '';
-    document.getElementById('f-monto').value    = '';
-    document.getElementById('f-concepto').value = '';
+    document.getElementById('f-familia').value = '';
+    document.getElementById('f-monto').value   = '';
+    document.getElementById('f-item').value    = '';
+    document.getElementById('f-detalle').value = '';
+    onItemChange();
     fileEl.value = '';
     fileEl._file = null;
     nameEl.style.display = 'none';
