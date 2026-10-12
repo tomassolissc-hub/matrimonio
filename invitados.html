@@ -31,7 +31,40 @@
     <button class="btn btn-primary" onclick="openModal()" style="flex-shrink:0;margin-top:4px">+ Agregar invitado</button>
   </div>
 
-  <div class="tabs" id="tabs" style="margin-top:16px"></div>
+  <!-- Gráfico Full vs Fiesta -->
+  <div id="tipo-chart" style="margin-top:16px;margin-bottom:16px;display:none">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="width:52px;font-size:12px;font-weight:600;color:var(--fg-muted)">Full</span>
+        <div style="flex:1;height:22px;background:var(--border);border-radius:6px;overflow:hidden;position:relative">
+          <div id="bar-full" style="height:100%;background:var(--accent-fg,#b59a6a);border-radius:6px;transition:width .5s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;box-sizing:border-box;min-width:32px">
+            <span id="lbl-full" style="font-size:11px;font-weight:700;color:#fff"></span>
+          </div>
+        </div>
+        <span id="n-full" style="width:36px;font-size:12px;font-weight:700;color:var(--fg);text-align:right"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="width:52px;font-size:12px;font-weight:600;color:var(--fg-muted)">Fiesta</span>
+        <div style="flex:1;height:22px;background:var(--border);border-radius:6px;overflow:hidden;position:relative">
+          <div id="bar-fiesta" style="height:100%;background:var(--s-color,#2e7d52);border-radius:6px;transition:width .5s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;box-sizing:border-box;min-width:32px">
+            <span id="lbl-fiesta" style="font-size:11px;font-weight:700;color:#fff"></span>
+          </div>
+        </div>
+        <span id="n-fiesta" style="width:36px;font-size:12px;font-weight:700;color:var(--fg);text-align:right"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="width:52px;font-size:12px;font-weight:600;color:var(--fg-muted)">S/info</span>
+        <div style="flex:1;height:22px;background:var(--border);border-radius:6px;overflow:hidden;position:relative">
+          <div id="bar-otro" style="height:100%;background:var(--fg-faint,#aaa);border-radius:6px;transition:width .5s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;box-sizing:border-box;min-width:32px">
+            <span id="lbl-otro" style="font-size:11px;font-weight:700;color:#fff"></span>
+          </div>
+        </div>
+        <span id="n-otro" style="width:36px;font-size:12px;font-weight:700;color:var(--fg);text-align:right"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
   <div id="subfilters" style="margin-bottom:12px"></div>
   <div class="search-wrap">
     <input class="search-input" id="search" type="search" placeholder="Buscar invitado…" autocomplete="off">
@@ -111,12 +144,39 @@ const tabsEl   = document.getElementById('tabs');
 const subEl    = document.getElementById('subfilters');
 const searchEl = document.getElementById('search');
 
+function renderChart() {
+  const all = ['riedel','chico','solis'].flatMap(k => guests[k] || []);
+  let full = 0, fiesta = 0, otro = 0;
+  all.forEach(g => {
+    const t = (g.tipo || '').trim();
+    if (t === 'Full')   full++;
+    else if (t === 'Fiesta') fiesta++;
+    else otro++;
+  });
+  const total = all.length || 1;
+  const chartEl = document.getElementById('tipo-chart');
+  chartEl.style.display = '';
+
+  document.getElementById('bar-full').style.width   = Math.max(4, Math.round(full   / total * 100)) + '%';
+  document.getElementById('bar-fiesta').style.width = Math.max(4, Math.round(fiesta / total * 100)) + '%';
+  document.getElementById('bar-otro').style.width   = Math.max(4, Math.round(otro   / total * 100)) + '%';
+
+  document.getElementById('lbl-full').textContent   = Math.round(full   / total * 100) + '%';
+  document.getElementById('lbl-fiesta').textContent = Math.round(fiesta / total * 100) + '%';
+  document.getElementById('lbl-otro').textContent   = Math.round(otro   / total * 100) + '%';
+
+  document.getElementById('n-full').textContent   = full;
+  document.getElementById('n-fiesta').textContent = fiesta;
+  document.getElementById('n-otro').textContent   = otro;
+}
+
 async function load() {
   try {
     guests = await apiFetch('guests');
     renderTabs();
     renderSubfilters();
     renderGuests();
+    renderChart();
   } catch(e) {
     showError(root, e.message);
   }
@@ -146,7 +206,9 @@ function renderSubfilters() {
 function renderGuests() {
   const q   = searchEl.value.trim().toLowerCase();
   const all = guests[current] || [];
-  let list  = subfilter === 'all' ? all : all.filter(g => g.g === subfilter);
+  let list  = subfilter === 'all' ? all
+    : subfilter === 'Riedel Palma' ? all.filter(g => !g.g || g.g === 'Riedel Palma')
+    : all.filter(g => g.g === subfilter);
   if (q) list = list.filter(g => g.n.toLowerCase().includes(q));
 
   const count = all.length;
