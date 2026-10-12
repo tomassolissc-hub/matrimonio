@@ -160,7 +160,11 @@ function render() {
   const k      = fam;
   const bKey   = k + 'b'; // rb / cb / sb
 
-  const totalShare  = items.reduce((s, x) => s + (x[bKey]||0), 0);
+  // Para ítems sin precio fijo (rb=0), el "total" es lo que se ha pagado hasta ahora
+  const totalShare  = items.reduce((s, x) => {
+    const fixed = x[bKey]||0;
+    return s + (fixed > 0 ? fixed : (itemPaid[x.item]||{})[k]||0);
+  }, 0);
   const totalPaid   = paid[k];
   const totalPend   = Math.max(0, totalShare - totalPaid);
   const pct         = totalShare > 0 ? Math.min(100, Math.round(totalPaid / totalShare * 100)) : 0;
@@ -176,15 +180,26 @@ function render() {
   // Actualizar URL sin recargar
   history.replaceState(null,'',`?f=${k}`);
 
-  const estItems  = items.filter(x => x.est && (x[bKey]||0) > 0);
-  const realItems = items.filter(x => !x.est && (x[bKey]||0) > 0);
-  const zeroItems = items.filter(x => !x.est && (x[bKey]||0) === 0);
+  // Items con presupuesto > 0, o con pagos aunque presupuesto sea 0
+  const estItems  = items.filter(x => x.est && ((x[bKey]||0) > 0 || (itemPaid[x.item]||{})[k] > 0));
+  const realItems = items.filter(x => !x.est && ((x[bKey]||0) > 0 || (itemPaid[x.item]||{})[k] > 0));
+  const zeroItems = items.filter(x => !x.est && (x[bKey]||0) === 0 && !((itemPaid[x.item]||{})[k] > 0));
+
+  // Pagos de esta familia, orden cronológico inverso
+  const famPagos = (pagosData||[]).filter(p => {
+    const pk = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
+    return pk === k;
+  }).slice().reverse();
 
   function itemLine(x) {
-    const share = x[bKey]||0;
-    const ipaid = (itemPaid[x.item]||{})[k]||0;
-    const ipct  = share > 0 ? Math.min(100, Math.round(ipaid / share * 100)) : 0;
-    const color = `var(--${k}-color)`;
+    const ipaid  = (itemPaid[x.item]||{})[k]||0;
+    // Para ítems sin precio fijo, el "presupuesto" mostrado es lo pagado hasta ahora
+    const share  = (x[bKey]||0) > 0 ? (x[bKey]||0) : ipaid;
+    const ipct   = share > 0 ? Math.min(100, Math.round(ipaid / share * 100)) : 0;
+    const color  = `var(--${k}-color)`;
+    const shareLabel = (x[bKey]||0) > 0
+      ? `$${fmt(share)}`
+      : `<span style="color:var(--fg-faint);font-size:11px">acumulado</span>`;
     return `<div class="item-line">
       <div class="item-name${x.est?' est':''}">${x.item}${x.est?' ★':''}</div>
       <div class="item-bar-wrap">
@@ -192,8 +207,22 @@ function render() {
         <div class="item-pct" style="color:${color}">${ipct}%</div>
       </div>
       <div class="item-amounts">
-        <div class="item-share">$${fmt(share)}</div>
+        <div class="item-share">${shareLabel}</div>
         <div class="item-paid">pagado $${fmt(ipaid)}</div>
+      </div>
+    </div>`;
+  }
+
+  function pagoRow(p) {
+    const comp = p.comprobante
+      ? `<a href="${p.comprobante}" target="_blank" style="color:var(--${k}-color);font-size:11px;text-decoration:none">Ver →</a>`
+      : '';
+    return `<div class="item-line">
+      <div style="font-size:11px;color:var(--fg-faint);flex-shrink:0;width:72px">${p.fecha||'—'}</div>
+      <div class="item-name" style="font-size:13px">${p.concepto}</div>
+      <div style="flex-shrink:0;text-align:right">
+        <div style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums">$${fmt(p.monto)}</div>
+        <div style="font-size:11px;margin-top:2px">${comp}</div>
       </div>
     </div>`;
   }
@@ -234,9 +263,14 @@ function render() {
     ` : ''}
 
     ${zeroItems.length ? `
-    <p style="font-size:12px;color:var(--fg-faint);margin:0 0 8px">
+    <p style="font-size:12px;color:var(--fg-faint);margin:0 0 16px">
       Sin costo para tu familia: ${zeroItems.map(x=>x.item).join(' · ')}
     </p>
+    ` : ''}
+
+    ${famPagos.length ? `
+    <div class="section-label" style="margin-top:8px">Historial de pagos</div>
+    <div class="item-list" style="margin-bottom:16px">${famPagos.map(pagoRow).join('')}</div>
     ` : ''}
 
     <div style="margin-top:8px">
