@@ -33,13 +33,20 @@ import { apiFetch, fmt, initTheme, highlightNav } from './api.js';
 initTheme();
 highlightNav();
 
-// ── Datos financieros (actualizados manualmente cuando cambia un contrato) ──
-const BRUTO = { r: 31842496, c: 15641946, s: 11527703 };
-const NETO  = { r: 28852541, c: 13310340, s: 9207063  };
-const BRUTO_TOTAL = BRUTO.r + BRUTO.c + BRUTO.s; // 59012145
-const NETO_TOTAL  = NETO.r  + NETO.c  + NETO.s;  // 51370144
+// ── Totales fijos (sin Banquetera — ésta viene de la API) ─────
+// Suma de: Centro de Eventos, DJ, Fotógrafo, Videógrafo,
+// Maquilladora, Comida extra, Pista de Baile, Ceremonia,
+// Saxofonista, Flores, Extras  (todos × 1.19 IVA normal)
+const FIXED = {
+  r: { n: 12475784, b: 14846183 },
+  c: { n:  6237892, b:  7423092 },
+  s: { n:  6237892, b:  7423092 },
+};
 
 const root = document.getElementById('root');
+let BRUTO = { r:0, c:0, s:0 };
+let NETO  = { r:0, c:0, s:0 };
+let BRUTO_TOTAL = 0, NETO_TOTAL = 0;
 
 function familiaCard(k, label, bruto, neto, pagado, pend) {
   const pct = bruto > 0 ? Math.min(100, Math.round(pagado / bruto * 100)) : 0;
@@ -80,8 +87,7 @@ function renderPagos(pagos) {
 function renderPanel(pagos) {
   const pagado = { r: 0, c: 0, s: 0 };
   (pagos || []).forEach(p => {
-    const fam = p.familia;
-    const k = fam === 'Riedel Palma' ? 'r' : fam === 'Chico' ? 'c' : 's';
+    const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
     pagado[k] += Number(p.monto) || 0;
   });
   const pagadoTotal = pagado.r + pagado.c + pagado.s;
@@ -182,18 +188,39 @@ function setCachedPagos(data) {
 }
 
 async function render() {
-  // Mostrar caché local inmediatamente si existe, si no lista vacía
   const cached = getCachedPagos();
+
+  // Render inmediato con caché (o vacío) y totales fijos sin banquetera
+  BRUTO = { r: FIXED.r.b, c: FIXED.c.b, s: FIXED.s.b };
+  NETO  = { r: FIXED.r.n, c: FIXED.c.n, s: FIXED.s.n };
+  BRUTO_TOTAL = BRUTO.r + BRUTO.c + BRUTO.s;
+  NETO_TOTAL  = NETO.r  + NETO.c  + NETO.s;
   renderPanel(cached || []);
 
-  // Actualizar en segundo plano
+  // Actualizar banquetera y pagos en paralelo
   try {
-    const pagos = await apiFetch('pagos');
-    const data  = pagos || [];
+    const [banq, pagos] = await Promise.all([
+      apiFetch('banquetera'),
+      apiFetch('pagos'),
+    ]);
+    if (banq && !banq.error) {
+      BRUTO = {
+        r: FIXED.r.b + (banq.rb || 0),
+        c: FIXED.c.b + (banq.cb || 0),
+        s: FIXED.s.b + (banq.sb || 0),
+      };
+      NETO = {
+        r: FIXED.r.n + (banq.rn || 0),
+        c: FIXED.c.n + (banq.cn || 0),
+        s: FIXED.s.n + (banq.sn || 0),
+      };
+      BRUTO_TOTAL = BRUTO.r + BRUTO.c + BRUTO.s;
+      NETO_TOTAL  = NETO.r  + NETO.c  + NETO.s;
+    }
+    const data = pagos || [];
     setCachedPagos(data);
     renderPanel(data);
   } catch(e) {
-    // Si ya teníamos caché, quedamos con eso; si no, mostrar error
     if (!cached) {
       const card = document.getElementById('pagos-card');
       if (card) card.innerHTML = `<p style="color:var(--fg-muted);font-size:13px;padding:8px 0">
