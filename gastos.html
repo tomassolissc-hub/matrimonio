@@ -394,6 +394,22 @@ function renderDist(m, CONF, EST) {
   const EF = footerPaid(estItems);
   const TF = { pr: CF.pr+EF.pr, pc: CF.pc+EF.pc, ps: CF.ps+EF.ps, rb: CF.rb+EF.rb, cb: CF.cb+EF.cb, sb: CF.sb+EF.sb };
 
+  // Total visible para fila Confirmado: presupuesto + acumulado pagado de ítems sin precio fijo
+  const confDisplayTot = (() => {
+    const bSuf = m === 'neto' ? 'n' : 'b';
+    return confItems.reduce((sum, x) => {
+      const rv = vis.r ? (x[`r${bSuf}`]||0) : 0;
+      const cv = vis.c ? (x[`c${bSuf}`]||0) : 0;
+      const sv = vis.s ? (x[`s${bSuf}`]||0) : 0;
+      if (rv+cv+sv > 0) return sum + rv + cv + sv;
+      // ítem sin precio fijo (ej. Ceremonia) → usar pagado acumulado
+      const ip = ITEM_PAGADO[x.item] || {r:0,c:0,s:0};
+      return sum + (vis.r?ip.r:0) + (vis.c?ip.c:0) + (vis.s?ip.s:0);
+    }, 0);
+  })();
+  const estDisplayTot   = visTotal(EST);
+  const grandDisplayTot = confDisplayTot + estDisplayTot;
+
   document.getElementById('root').innerHTML = `
     <div class="card" style="padding:0">
       <div class="table-wrap"><table>
@@ -435,15 +451,15 @@ function renderDist(m, CONF, EST) {
         </tbody>
         <tfoot>
           ${[
-            { label:'Confirmado', style:'font-weight:600;border-top:2px solid var(--border)', em:false, T:CONF, F:CF },
-            { label:'+ Estimado', style:'color:var(--fg-muted);font-size:13px', em:true,  T:EST,  F:EF },
-            { label:'TOTAL',      style:'font-weight:700;border-top:1px solid var(--border)', em:false, T:TOTALS, F:TF },
-          ].map(({label,style,em,T,F})=>{
+            { label:'Confirmado', style:'font-weight:600;border-top:2px solid var(--border)', em:false, T:CONF, F:CF, tot:confDisplayTot },
+            { label:'+ Estimado', style:'color:var(--fg-muted);font-size:13px', em:true,  T:EST,  F:EF, tot:estDisplayTot },
+            { label:'TOTAL',      style:'font-weight:700;border-top:1px solid var(--border)', em:false, T:TOTALS, F:TF, tot:grandDisplayTot },
+          ].map(({label,style,em,T,F,tot})=>{
             const w = v => em ? `<em>$${fmt(v)}</em>` : `$${fmt(v)}`;
             return `<tr style="${style}">
               <td>${em?`<em>${label}</em>`:label}</td>
               ${cols.map(c=>`<td class="num">${w(T[c.key]||0)}</td>`).join('')}
-              <td class="num">${w(visTotal(T))}</td>
+              <td class="num">${w(tot)}</td>
               <td style="padding-right:8px">${pctBarTotals(F.pr,F.pc,F.ps,F.rb,F.cb,F.sb)}</td>
             </tr>`;
           }).join('')}
