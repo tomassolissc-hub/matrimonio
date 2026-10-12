@@ -155,9 +155,7 @@ function renderPanel(pagos) {
 
     <div class="section-label">Pagos registrados</div>
     <div class="card" id="pagos-card">
-      ${pagos.length === 0
-        ? '<div class="loading"><div class="spinner"></div> Cargando pagos…</div>'
-        : renderPagos(pagos)}
+      ${renderPagos(pagos)}
     </div>
   `;
 }
