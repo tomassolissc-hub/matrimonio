@@ -114,6 +114,20 @@ const FIXED = {
   s: { n:  5996210, b:  7135492 },
 };
 
+// Ítems sin precio fijo (Ceremonia, Maquilladora) — sus pagos se suman al bruto total
+const ZERO_BUDGET_NAMES = ['ceremonia', 'maquilladora'];
+function computeZeroBudgetPaid(pagos) {
+  const z = { r:0, c:0, s:0 };
+  (pagos||[]).forEach(p => {
+    const concepto = String(p.concepto||'').toLowerCase();
+    if (ZERO_BUDGET_NAMES.some(n => concepto.startsWith(n) || concepto.includes(n))) {
+      const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
+      z[k] += Number(p.monto)||0;
+    }
+  });
+  return z;
+}
+
 const root = document.getElementById('root');
 let BRUTO = { r:0, c:0, s:0 };
 let NETO  = { r:0, c:0, s:0 };
@@ -166,7 +180,12 @@ function renderPagos(pagos) {
         <td class="num">$${fmt(p.monto)}</td>
         <td id="comp-cell-${p.id}">${comp}</td>
         <td style="white-space:nowrap">
-          <button onclick="editarPago('${p.id}','${p.familia}',${JSON.stringify(p.concepto)},${p.monto})" style="background:none;border:none;cursor:pointer;color:var(--fg-muted);font-size:14px;padding:2px 5px;line-height:1" title="Editar">✏️</button>
+          ${!p.id.startsWith('G') ? `<button class="btn-edit-pago"
+            data-id="${p.id}"
+            data-familia="${p.familia}"
+            data-concepto="${(p.concepto||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"
+            data-monto="${p.monto}"
+            style="background:none;border:none;cursor:pointer;color:var(--fg-muted);font-size:14px;padding:2px 5px;line-height:1" title="Editar">✏️</button>` : ''}
           <button onclick="eliminarPago('${p.id}')" style="background:none;border:none;cursor:pointer;color:var(--fg-faint);font-size:16px;padding:2px 5px;line-height:1" title="Eliminar">×</button>
         </td>
       </tr>`;
@@ -230,20 +249,25 @@ function renderPanel(pagos) {
   });
   const pagadoTotal = pagado.r + pagado.c + pagado.s;
 
+  // Ítems sin precio fijo (ej. Ceremonia) — sus pagos engrosan el total bruto
+  const zp = computeZeroBudgetPaid(pagos);
+  const bruto = { r: BRUTO.r + zp.r, c: BRUTO.c + zp.c, s: BRUTO.s + zp.s };
+  const brutoTotal = bruto.r + bruto.c + bruto.s;
+
   const pend = {
-    r: Math.max(0, BRUTO.r - pagado.r),
-    c: Math.max(0, BRUTO.c - pagado.c),
-    s: Math.max(0, BRUTO.s - pagado.s),
+    r: Math.max(0, bruto.r - pagado.r),
+    c: Math.max(0, bruto.c - pagado.c),
+    s: Math.max(0, bruto.s - pagado.s),
   };
   const pendTotal = pend.r + pend.c + pend.s;
-  const pct = BRUTO_TOTAL > 0 ? Math.min(100, Math.round(pagadoTotal / BRUTO_TOTAL * 100)) : 0;
+  const pct = brutoTotal > 0 ? Math.min(100, Math.round(pagadoTotal / brutoTotal * 100)) : 0;
 
   root.innerHTML = `
     <div class="section-label">Totales generales</div>
     <div class="stat-grid" style="margin-bottom:28px">
       <div class="stat-tile t">
         <div class="label">Total bruto</div>
-        <div class="value">$${fmt(BRUTO_TOTAL)}</div>
+        <div class="value">$${fmt(brutoTotal)}</div>
         <div class="sub">neto $${fmt(NETO_TOTAL)}</div>
       </div>
       <div class="stat-tile">
@@ -261,9 +285,9 @@ function renderPanel(pagos) {
 
     <div class="section-label">Por familia</div>
     <div class="stat-grid" style="margin-bottom:28px">
-      ${familiaCard('r','Riedel Palma',BRUTO.r,NETO.r,pagado.r,pend.r)}
-      ${familiaCard('c','Chico',BRUTO.c,NETO.c,pagado.c,pend.c)}
-      ${familiaCard('s','Solís Soto',BRUTO.s,NETO.s,pagado.s,pend.s)}
+      ${familiaCard('r','Riedel Palma',bruto.r,NETO.r,pagado.r,pend.r)}
+      ${familiaCard('c','Chico',bruto.c,NETO.c,pagado.c,pend.c)}
+      ${familiaCard('s','Solís Soto',bruto.s,NETO.s,pagado.s,pend.s)}
     </div>
 
     <div class="section-label">Distribución gastos generales</div>
@@ -367,6 +391,13 @@ async function render() {
     }
   }
 }
+
+// Delegated listener para botones de editar pago (evita problemas con comillas en onclick inline)
+root.addEventListener('click', e => {
+  const btn = e.target.closest('.btn-edit-pago');
+  if (!btn) return;
+  editarPago(btn.dataset.id, btn.dataset.familia, btn.dataset.concepto, parseFloat(btn.dataset.monto));
+});
 
 render();
 </script>
