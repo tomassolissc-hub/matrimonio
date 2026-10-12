@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Liquidación — Matrimonio 2026</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="site-nav-inner">
+    <a class="site-nav-brand" href="index.html">💍 Matrimonio 2026</a>
+    <ul class="site-nav-links">
+      <li><a href="index.html">Panel</a></li>
+      <li><a href="gastos.html">Gastos</a></li>
+      <li><a href="invitados.html">Invitados</a></li>
+      <li><a href="pagos.html">Pagos</a></li>
+      <li><a href="familia.html">Mi resumen</a></li>
+      <li><a href="liquidacion.html"><strong>Liquidación</strong></a></li>
+    </ul>
+    <button class="theme-toggle" id="theme-toggle" aria-label="Cambiar tema">🌙</button>
+  </div>
+</nav>
+
+<main class="page">
+  <h1 class="page-title">Liquidación</h1>
+  <p class="page-subtitle">¿Quién le debe a quién al final del día?</p>
+  <div id="root"></div>
+</main>
+
+<script type="module">
+import { apiFetch, fmt, initTheme, highlightNav } from './api.js';
+
+initTheme();
+highlightNav();
+
+const root = document.getElementById('root');
+
+// ─── Compute ────────────────────────────────────────────────────────────────
+
+function computeLiquidacion(pagos, banq) {
+  const paid    = { r:0, c:0, s:0 };
+  const banqPaid = { r:0, c:0, s:0 };
+
+  (pagos || []).forEach(p => {
+    const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
+    const m = Number(p.monto) || 0;
+    const c = String(p.concepto || '').toLowerCase();
+    if (c.includes('banquetera') || c.includes('catering') || c.includes('comida')) {
+      banqPaid[k] += m;
+    } else {
+      paid[k] += m;
+    }
+  });
+
+  const restoTotal = paid.r + paid.c + paid.s;
+  const banqTotal  = banqPaid.r + banqPaid.c + banqPaid.s;
+  const grandTotal = restoTotal + banqTotal;
+
+  let sr = 0.50;
+  if (banq && banq.totalInvitados > 0) sr = (banq.invitadosR || 0) / banq.totalInvitados;
+
+  // Nivel 1: Riedel vs bloque B
+  const riedel_paid = paid.r + banqPaid.r;
+  const riedel_debe = restoTotal * 0.50 + banqTotal * sr;
+  const riedel_net  = riedel_paid - riedel_debe;
+
+  // Nivel 2: interno Chico / Solís
+  const cs_debe_total = restoTotal * 0.50 + banqTotal * (1 - sr);
+  const each_cs_debe  = cs_debe_total / 2;
+  const c_paid = paid.c + banqPaid.c;
+  const s_paid = paid.s + banqPaid.s;
+  const c_net  = c_paid - each_cs_debe;
+  const s_net  = s_paid - each_cs_debe;
+
+  return { riedel_net, c_net, s_net, riedel_paid, c_paid, s_paid, riedel_debe, each_cs_debe, grandTotal, cs_debe_total };
+}
+
+// ─── Render ─────────────────────────────────────────────────────────────────
+
+function renderLiquidacion(pagos, banq) {
+  const { riedel_net, c_net, s_net, riedel_paid, c_paid, s_paid,
+          riedel_debe, each_cs_debe, grandTotal, cs_debe_total } = computeLiquidacion(pagos, banq);
+
+  const NAMES = { r:'Riedel Palma', c:'Chico', s:'Solís Soto' };
+  const badge = k => `<span class="badge badge-${k}">${NAMES[k]}</span>`;
+
+  // Chico + Solís juntos, sin espacio entre los badges para que se lean como unidad
+  const badgeCS = `<span style="display:inline-flex;align-items:center;gap:3px">${badge('c')}${badge('s')}</span>`;
+
+  if (grandTotal < 100) {
+    return `<div class="card"><p style="font-size:13px;color:var(--fg-muted);padding:4px 0">Aún no hay pagos registrados.</p></div>`;
+  }
+
+  // ── Totales ──
+  const totalesHtml = `
+    <div class="card" style="margin-bottom:28px;padding:24px 20px">
+      <div style="font-size:11px;font-weight:600;color:var(--fg-muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Total pagado entre todos</div>
+      <div style="font-size:32px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em">$${fmt(grandTotal)}</div>
+    </div>`;
+
+  // ── Nivel 1: entre bloques ──
+  const cs_paid = c_paid + s_paid;
+  const rColor  = riedel_net >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#ef4444)';
+  const csColor = riedel_net <= 0 ? 'var(--green,#22c55e)' : 'var(--red,#ef4444)';
+  const inter   = Math.abs(Math.round(riedel_net));
+
+  const interRowBloque = inter > 100
+    ? `<div style="display:flex;align-items:center;gap:10px;padding:16px 0 4px;border-top:1px solid var(--border);margin-top:4px">
+        ${riedel_net < 0 ? badge('r') : badgeCS}
+        <span style="color:var(--fg-faint);font-size:22px;line-height:1">→</span>
+        ${riedel_net < 0 ? badgeCS : badge('r')}
+        <span style="flex:1"></span>
+        <span style="font-size:19px;font-weight:700;font-variant-numeric:tabular-nums">$${fmt(inter)}</span>
+      </div>`
+    : `<div style="padding:12px 0 4px;color:var(--fg-muted);font-size:13px">✅ Ambos bloques están al día entre sí.</div>`;
+
+  const nivel1Html = `
+    <div class="section-label">Entre bloques — Riedel 50% · Chico+Solís 50%</div>
+    <div class="card" style="margin-bottom:28px;padding:24px 20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);font-size:13px;gap:8px">
+        ${badge('r')}
+        <span style="color:var(--fg-muted);flex:1;text-align:right">pagó $${fmt(riedel_paid)} · debía $${fmt(Math.round(riedel_debe))}</span>
+        <span style="font-weight:600;color:${rColor};min-width:60px;text-align:right">${riedel_net >= 0 ? '✔' : '− $'+fmt(Math.abs(Math.round(riedel_net)))}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);font-size:13px;gap:8px">
+        ${badgeCS}
+        <span style="color:var(--fg-muted);flex:1;text-align:right">pagó $${fmt(cs_paid)} · debían $${fmt(Math.round(cs_debe_total))}</span>
+        <span style="font-weight:600;color:${csColor};min-width:60px;text-align:right">${riedel_net <= 0 ? '✔' : '− $'+fmt(Math.abs(Math.round(riedel_net)))}</span>
+      </div>
+      ${interRowBloque}
+    </div>`;
+
+  // ── Nivel 2: interno Chico / Solís ──
+  const interCS = Math.abs(Math.round(c_net));
+  const from = c_net < 0 ? 'c' : 's';
+  const to   = c_net < 0 ? 's' : 'c';
+
+  const interRowInterno = interCS > 100
+    ? `<div style="display:flex;align-items:center;gap:10px;padding:16px 0 4px;border-top:1px solid var(--border);margin-top:4px">
+        ${badge(from)}
+        <span style="color:var(--fg-faint);font-size:22px;line-height:1">→</span>
+        ${badge(to)}
+        <span style="flex:1"></span>
+        <span style="font-size:19px;font-weight:700;font-variant-numeric:tabular-nums">$${fmt(interCS)}</span>
+      </div>`
+    : `<div style="padding:12px 0 4px;color:var(--fg-muted);font-size:13px">✅ Chico y Solís están al día entre sí.</div>`;
+
+  const nivel2Html = `
+    <div class="section-label">Interno — Chico / Solís Soto</div>
+    <div class="card" style="margin-bottom:28px;padding:24px 20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);font-size:13px;gap:8px">
+        ${badge('c')}
+        <span style="color:var(--fg-muted);flex:1;text-align:right">pagó $${fmt(c_paid)} · debía $${fmt(Math.round(each_cs_debe))}</span>
+        <span style="font-weight:600;color:${c_net < 0 ? 'var(--red,#ef4444)' : 'var(--green,#22c55e)'};min-width:60px;text-align:right">
+          ${c_net >= 0 ? '✔' : '− $'+fmt(Math.abs(Math.round(c_net)))}
+        </span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);font-size:13px;gap:8px">
+        ${badge('s')}
+        <span style="color:var(--fg-muted);flex:1;text-align:right">pagó $${fmt(s_paid)} · debía $${fmt(Math.round(each_cs_debe))}</span>
+        <span style="font-weight:600;color:${s_net < 0 ? 'var(--red,#ef4444)' : 'var(--green,#22c55e)'};min-width:60px;text-align:right">
+          ${s_net >= 0 ? '✔' : '− $'+fmt(Math.abs(Math.round(s_net)))}
+        </span>
+      </div>
+      ${interRowInterno}
+    </div>`;
+
+  // ── Nota al pie ──
+  const nota = `<p style="font-size:12px;color:var(--fg-faint);margin:0">
+    Banquetera dividida según número de invitados por familia · todo lo demás al 50/50 entre bloques · Chico y Solís dividen su mitad al 50/50.
+  </p>`;
+
+  return totalesHtml + nivel1Html + nivel2Html + nota;
+}
+
+// ─── Fetch + render ──────────────────────────────────────────────────────────
+
+async function render() {
+  root.innerHTML = `<p style="color:var(--fg-muted);font-size:13px;padding:20px 0">Cargando…</p>`;
+  try {
+    const [pagos, banq] = await Promise.all([
+      apiFetch({ action: 'getPagos' }).then(r => r.pagos || []),
+      apiFetch({ action: 'getBanquetera' }).catch(() => null)
+    ]);
+    root.innerHTML = renderLiquidacion(pagos, banq);
+  } catch(e) {
+    root.innerHTML = `<p style="color:var(--red,#ef4444);font-size:13px;padding:8px 0">Error al cargar datos: ${e.message}</p>`;
+  }
+}
+
+render();
+</script>
+</body>
+</html>
