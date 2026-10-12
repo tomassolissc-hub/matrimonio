@@ -48,14 +48,14 @@ highlightNav();
 // Maquilladora y Ceremonia sin precio confirmado aún → ceros
 const ITEMS_FIXED = [
   { item:'Centro de Eventos', rn:4423284, rb:5263708, cn:2211642, cb:2631854, sn:2211642, sb:2631854, pr:2114095, pc:0,      ps:2150000 },
-  { item:'DJ',                rn:925000,  rb:1100750, cn:462500,  cb:550375,  sn:462500,  sb:550375,  pr:0,       pc:925000, ps:0       },
-  { item:'Fotógrafo',         rn:900000,  rb:1071000, cn:450000,  cb:535500,  sn:450000,  sb:535500,  pr:900000,  pc:0,      ps:0       },
-  { item:'Videógrafo',        rn:650000,  rb:773500,  cn:325000,  cb:386750,  sn:325000,  sb:386750,  pr:0,       pc:650000, ps:0       },
+  { item:'DJ',                rn:777311,  rb:925000,  cn:388655,  cb:462500,  sn:388655,  sb:462500,  pr:0,       pc:925000, ps:0       },
+  { item:'Fotógrafo',         rn:756303,  rb:900000,  cn:378151,  cb:450000,  sn:378151,  sb:450000,  pr:900000,  pc:0,      ps:0       },
+  { item:'Videógrafo',        rn:546218,  rb:650000,  cn:273109,  cb:325000,  sn:273109,  sb:325000,  pr:0,       pc:650000, ps:0       },
   { item:'Maquilladora',      rn:0,       rb:0,       cn:0,       cb:0,       sn:0,       sb:0,       pr:0,       pc:0,      ps:0,      est:true },
   { item:'Comida extra',      rn:30000,   rb:35700,   cn:15000,   cb:17850,   sn:15000,   sb:17850,   pr:0,       pc:0,      ps:0       },
-  { item:'Pista de Baile',    rn:330000,  rb:392700,  cn:165000,  cb:196350,  sn:165000,  sb:196350,  pr:0,       pc:311500, ps:0       },
+  { item:'Pista de Baile',    rn:261765,  rb:311500,  cn:130882,  cb:155750,  sn:130882,  sb:155750,  pr:0,       pc:311500, ps:0       },
   { item:'Ceremonia',         rn:0,       rb:0,       cn:0,       cb:0,       sn:0,       sb:0,       pr:0,       pc:0,      ps:0,      est:true },
-  { item:'Saxofonista',       rn:125000,  rb:148750,  cn:62500,   cb:74375,   sn:62500,   sb:74375,   pr:62500,   pc:62500,  ps:0       },
+  { item:'Saxofonista',       rn:105042,  rb:125000,  cn:52521,   cb:62500,   sn:52521,   sb:62500,   pr:62500,   pc:62500,  ps:0       },
   { item:'Flores',            rn:800000,  rb:952000,  cn:400000,  cb:476000,  sn:400000,  sb:476000,  pr:0,       pc:0,      ps:0,      est:true },
   { item:'Extras',            rn:4292500, rb:5108075, cn:2146250, cb:2554038, sn:2146250, sb:2554038, pr:0,       pc:0,      ps:0,      est:true },
 ];
@@ -162,6 +162,7 @@ function renderTable() {
           <th class="num" style="color:var(--r-color)">Pag. R</th>
           <th class="num" style="color:var(--c-color)">Pag. C</th>
           <th class="num" style="color:var(--s-color)">Pag. S</th>
+          <th class="num">% Pag.</th>
         </tr></thead>
         <tbody>
           ${ITEMS.map(row=>{
@@ -180,34 +181,38 @@ function renderTable() {
               <td class="num" style="color:var(--r-color)">$${fmt(row.pr)}</td>
               <td class="num" style="color:var(--c-color)">$${fmt(row.pc)}</td>
               <td class="num" style="color:var(--s-color)">$${fmt(row.ps)}</td>
+              ${(()=>{
+                const total = row.rb + row.cb + row.sb;
+                const pag   = row.pr + row.pc + row.ps;
+                if (!total) return '<td class="num" style="color:var(--fg-faint)">—</td>';
+                const pct = Math.min(100, Math.round(pag / total * 100));
+                const color = pct >= 100 ? 'var(--s-color)' : pct > 0 ? 'var(--c-color)' : 'var(--fg-faint)';
+                return `<td class="num" style="font-weight:600;color:${color}">${pct}%</td>`;
+              })()}
             </tr>`;
           }).join('')}
         </tbody>
         <tfoot>
-          <tr style="border-top:2px solid var(--border)">
-            <td style="font-weight:600">Confirmado</td>
-            ${cols.map(c=>`<td class="num" style="font-weight:600">$${fmt(CONF[c.key])}</td>`).join('')}
-            <td class="num" style="font-weight:600">$${fmt(visTotal(CONF))}</td>
-            <td class="num" style="color:var(--r-color);font-weight:600">$${fmt(CONF.pr)}</td>
-            <td class="num" style="color:var(--c-color);font-weight:600">$${fmt(CONF.pc)}</td>
-            <td class="num" style="color:var(--s-color);font-weight:600">$${fmt(CONF.ps)}</td>
-          </tr>
-          <tr style="color:var(--fg-muted);font-size:13px">
-            <td><em>+ Estimado</em></td>
-            ${cols.map(c=>`<td class="num"><em>$${fmt(EST[c.key])}</em></td>`).join('')}
-            <td class="num"><em>$${fmt(visTotal(EST))}</em></td>
-            <td class="num" style="color:var(--r-color)"><em>$${fmt(EST.pr)}</em></td>
-            <td class="num" style="color:var(--c-color)"><em>$${fmt(EST.pc)}</em></td>
-            <td class="num" style="color:var(--s-color)"><em>$${fmt(EST.ps)}</em></td>
-          </tr>
-          <tr style="font-weight:700;border-top:1px solid var(--border)">
-            <td>TOTAL</td>
-            ${cols.map(c=>`<td class="num">$${fmt(TOTALS[c.key])}</td>`).join('')}
-            <td class="num">$${fmt(visTotal(TOTALS))}</td>
-            <td class="num" style="color:var(--r-color)">$${fmt(TOTALS.pr)}</td>
-            <td class="num" style="color:var(--c-color)">$${fmt(TOTALS.pc)}</td>
-            <td class="num" style="color:var(--s-color)">$${fmt(TOTALS.ps)}</td>
-          </tr>
+          ${[
+            { T:CONF,   label:'Confirmado', style:'font-weight:600;border-top:2px solid var(--border)', em:false },
+            { T:EST,    label:'+ Estimado', style:'color:var(--fg-muted);font-size:13px', em:true },
+            { T:TOTALS, label:'TOTAL',      style:'font-weight:700;border-top:1px solid var(--border)', em:false },
+          ].map(({T,label,style,em})=>{
+            const tb  = T.rb + T.cb + T.sb;
+            const pag = T.pr + T.pc + T.ps;
+            const pct = tb > 0 ? Math.min(100,Math.round(pag/tb*100)) : null;
+            const pctColor = pct === null ? 'var(--fg-faint)' : pct>=100 ? 'var(--s-color)' : pct>0 ? 'var(--c-color)' : 'var(--fg-faint)';
+            const w = v => em ? `<em>$${fmt(v)}</em>` : `$${fmt(v)}`;
+            return `<tr style="${style}">
+              <td>${em?`<em>${label}</em>`:label}</td>
+              ${cols.map(c=>`<td class="num">${w(T[c.key])}</td>`).join('')}
+              <td class="num">${w(visTotal(T))}</td>
+              <td class="num" style="color:var(--r-color)">${w(T.pr)}</td>
+              <td class="num" style="color:var(--c-color)">${w(T.pc)}</td>
+              <td class="num" style="color:var(--s-color)">${w(T.ps)}</td>
+              <td class="num" style="font-weight:600;color:${pctColor}">${pct!==null?pct+'%':'—'}</td>
+            </tr>`;
+          }).join('')}
         </tfoot>
       </table></div>
     </div>
