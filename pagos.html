@@ -63,9 +63,9 @@
         <option value="Otro">Otro…</option>
       </select>
     </div>
-    <div class="form-group" style="margin-bottom:12px;display:none" id="detalle-wrap">
-      <label class="form-label" id="detalle-label">Detalle (opcional)</label>
-      <input class="form-input" id="f-detalle" type="text" placeholder="Ej: Pie inicial, 2do abono…">
+    <div class="form-group" style="margin-bottom:12px" id="detalle-wrap">
+      <label class="form-label" id="detalle-label">Comentario o detalle</label>
+      <input class="form-input" id="f-detalle" type="text" placeholder="Ej: segunda cuota de banquetera">
     </div>
 
     <!-- Upload comprobante -->
@@ -102,22 +102,11 @@ highlightNav();
 
 window.onItemChange = () => {
   const item  = document.getElementById('f-item').value;
-  const wrap  = document.getElementById('detalle-wrap');
-  const label = document.getElementById('detalle-label');
   const input = document.getElementById('f-detalle');
-  if (!item) {
-    wrap.style.display = 'none';
-    return;
-  }
-  wrap.style.display = '';
   if (item === 'Otro') {
-    label.textContent = 'Especificar concepto *';
     input.placeholder = 'Ej: Mozo extra, torta…';
-    input.required = true;
   } else {
-    label.textContent = 'Detalle (opcional)';
-    input.placeholder = 'Ej: Pie inicial, 2do abono…';
-    input.required = false;
+    input.placeholder = 'Ej: segunda cuota de banquetera';
   }
 };
 
@@ -184,7 +173,6 @@ window.submitPago = async () => {
     document.getElementById('f-monto').value   = '';
     document.getElementById('f-item').value    = '';
     document.getElementById('f-detalle').value = '';
-    onItemChange();
     fileEl.value = '';
     fileEl._file = null;
     nameEl.style.display = 'none';
