@@ -143,25 +143,27 @@ highlightNav();
 
 // ── Items fijos (excluye Banquetera — viene de la API) ────────
 const ITEMS_FIXED = [
-  { item:'Centro de Eventos', rn:4423284, rb:5263708, cn:2211642, cb:2631854, sn:2211642, sb:2631854, pr:2114095, pc:0,      ps:2150000 },
-  { item:'DJ',                rn:777311,  rb:925000,  cn:388655,  cb:462500,  sn:388655,  sb:462500,  pr:0,       pc:925000, ps:0       },
-  { item:'Fotógrafo',         rn:756303,  rb:900000,  cn:378151,  cb:450000,  sn:378151,  sb:450000,  pr:900000,  pc:0,      ps:0       },
-  { item:'Videógrafo',        rn:546218,  rb:650000,  cn:273109,  cb:325000,  sn:273109,  sb:325000,  pr:0,       pc:650000, ps:0       },
-  { item:'Maquilladora',      rn:0,       rb:0,       cn:0,       cb:0,       sn:0,       sb:0,       pr:0,       pc:0,      ps:0,      est:true },
-  { item:'Comida extra',      rn:30000,   rb:35700,   cn:15000,   cb:17850,   sn:15000,   sb:17850,   pr:0,       pc:0,      ps:0       },
-  { item:'Pista de Baile',    rn:261765,  rb:311500,  cn:130882,  cb:155750,  sn:130882,  sb:155750,  pr:0,       pc:311500, ps:0       },
-  { item:'Ceremonia',         rn:0,       rb:0,       cn:0,       cb:0,       sn:0,       sb:0,       pr:0,       pc:0,      ps:0,      est:true },
-  { item:'Saxofonista',       rn:105042,  rb:125000,  cn:52521,   cb:62500,   sn:52521,   sb:62500,   pr:62500,   pc:62500,  ps:0       },
-  { item:'Flores',            rn:800000,  rb:952000,  cn:400000,  cb:476000,  sn:400000,  sb:476000,  pr:0,       pc:0,      ps:0,      est:true },
-  { item:'Extras',            rn:4292500, rb:5108075, cn:2146250, cb:2554038, sn:2146250, sb:2554038, pr:0,       pc:0,      ps:0,      est:true },
+  { item:'Centro de Eventos', rn:4423284, rb:5263708, cn:2211642, cb:2631854, sn:2211642, sb:2631854 },
+  { item:'DJ',                rn:777311,  rb:925000,  cn:388655,  cb:462500,  sn:388655,  sb:462500  },
+  { item:'Fotógrafo',         rn:756303,  rb:900000,  cn:378151,  cb:450000,  sn:378151,  sb:450000  },
+  { item:'Videógrafo',        rn:546218,  rb:650000,  cn:273109,  cb:325000,  sn:273109,  sb:325000  },
+  { item:'Maquilladora',      rn:0,       rb:0,       cn:0,       cb:0,       sn:0,       sb:0,       est:true },
+  { item:'Comida extra',      rn:30000,   rb:35700,   cn:15000,   cb:17850,   sn:15000,   sb:17850   },
+  { item:'Pista de Baile',    rn:261765,  rb:311500,  cn:130882,  cb:155750,  sn:130882,  sb:155750  },
+  { item:'Ceremonia',         rn:0,       rb:0,       cn:0,       cb:0,       sn:0,       sb:0,       est:true },
+  { item:'Saxofonista',       rn:105042,  rb:125000,  cn:52521,   cb:62500,   sn:52521,   sb:62500   },
+  { item:'Flores',            rn:800000,  rb:952000,  cn:400000,  cb:476000,  sn:400000,  sb:476000,  est:true },
+  { item:'Extras',            rn:4292500, rb:5108075, cn:2146250, cb:2554038, sn:2146250, sb:2554038, est:true },
 ];
 
 let mode   = 'bruto';
 let vis    = { r:true, c:true, s:true };
 let ITEMS  = ITEMS_FIXED.slice();
 let TOTALS = {};
-let PAGADO = { r:0, c:0, s:0 };
+let PAGADO    = { r:0, c:0, s:0 };  // totales pagado por familia
+let ITEM_PAGADO = {};               // { [itemName]: { r, c, s } }
 
+// ── Compute totals from ITEMS array ──────────────────────────
 function computeTotals(items) {
   return items.reduce((acc, x) => {
     acc.rb += x.rb; acc.rn += x.rn;
@@ -169,9 +171,46 @@ function computeTotals(items) {
     acc.sb += x.sb; acc.sn += x.sn;
     acc.tb += x.rb + x.cb + x.sb;
     acc.tn += x.rn + x.cn + x.sn;
-    acc.pr += x.pr; acc.pc += x.pc; acc.ps += x.ps;
     return acc;
-  }, { rb:0, rn:0, cb:0, cn:0, sb:0, sn:0, tb:0, tn:0, pr:0, pc:0, ps:0 });
+  }, { rb:0, rn:0, cb:0, cn:0, sb:0, sn:0, tb:0, tn:0 });
+}
+
+// ── Compute per-item, per-family paid amounts from pagos ─────
+function computeItemPagos(pagos, items) {
+  const result = {};
+  items.forEach(x => { result[x.item] = { r:0, c:0, s:0 }; });
+
+  (pagos || []).forEach(p => {
+    const k     = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
+    const monto = Number(p.monto) || 0;
+    const concepto = String(p.concepto || '').toLowerCase();
+
+    // Match concepto against item names (first match wins)
+    let matched = false;
+    for (const nombre of Object.keys(result)) {
+      if (concepto.startsWith(nombre.toLowerCase()) || concepto.includes(nombre.toLowerCase())) {
+        result[nombre][k] += monto;
+        matched = true;
+        break;
+      }
+    }
+    // If no item matched, put in Extras
+    if (!matched && result['Extras']) {
+      result['Extras'][k] += monto;
+    }
+  });
+
+  return result;
+}
+
+// ── Compute total paid per family ────────────────────────────
+function computePagado(pagos) {
+  const p = { r:0, c:0, s:0 };
+  (pagos || []).forEach(pago => {
+    const k = pago.familia === 'Riedel Palma' ? 'r' : pago.familia === 'Chico' ? 'c' : 's';
+    p[k] += Number(pago.monto) || 0;
+  });
+  return p;
 }
 
 window.toggleMode = () => {
@@ -240,23 +279,26 @@ window.toggleRow = id => {
   det.classList.toggle('open', open);
 };
 
-// ── Detail markup (per-family breakdown) ──────────────────────
+// ── Detail markup (per-family breakdown) — uses ITEM_PAGADO ──
 function detailHtml(row, colspan) {
+  const ip = ITEM_PAGADO[row.item] || { r:0, c:0, s:0 };
+  // For zero-budget items, treat total paid as the "share" (always 100%)
   const families = [
-    { label:'Riedel Palma', share: row.rb, pag: row.pr, color:'var(--r-color)' },
-    { label:'Chico',        share: row.cb, pag: row.pc, color:'var(--c-color)' },
-    { label:'Solís Soto',   share: row.sb, pag: row.ps, color:'var(--s-color)' },
+    { label:'Riedel Palma', share: row.rb > 0 ? row.rb : ip.r, pag: ip.r, color:'var(--r-color)' },
+    { label:'Chico',        share: row.cb > 0 ? row.cb : ip.c, pag: ip.c, color:'var(--c-color)' },
+    { label:'Solís Soto',   share: row.sb > 0 ? row.sb : ip.s, pag: ip.s, color:'var(--s-color)' },
   ];
   const inner = families.map(f => {
     const pct  = f.share > 0 ? Math.min(100, Math.round(f.pag / f.share * 100)) : 0;
     const pend = Math.max(0, f.share - f.pag);
+    const isZeroBudget = row.rb === 0 && row.cb === 0 && row.sb === 0;
     return `<div class="family-row">
       <div class="family-row-label" style="color:${f.color}">${f.label}</div>
       <div class="family-row-bar">
         <div class="family-row-fill" style="width:${pct}%;background:${f.color}"></div>
       </div>
       <div class="family-row-nums">
-        $${fmt(f.pag)} pagado · <span style="color:${pend>0?'var(--fg-muted)':'var(--s-color)'}">$${fmt(pend)} pend.</span>
+        $${fmt(f.pag)} ${isZeroBudget ? 'acumulado' : `pagado · <span style="color:${pend>0?'var(--fg-muted)':'var(--s-color)'}">$${fmt(pend)} pend.</span>`}
         <span style="margin-left:6px;font-weight:600;color:${pct>=100?'var(--s-color)':pct>0?'var(--c-color)':'var(--fg-faint)'}">${pct}%</span>
       </div>
     </div>`;
@@ -268,27 +310,40 @@ function detailHtml(row, colspan) {
   </tr>`;
 }
 
-// ── Mini stacked payment bar ──────────────────────────────────
-function stackedBar(row) {
-  const total = row.rb + row.cb + row.sb;
-  if (!total) return '<span style="color:var(--fg-faint);font-size:12px">—</span>';
-  const pr = Math.min(row.pr, row.rb);
-  const pc = Math.min(row.pc, row.cb);
-  const ps = Math.min(row.ps, row.sb);
-  const pct = v => Math.min(100, Math.round(v / total * 100));
-  return `<div style="display:flex;flex-direction:column;gap:3px;min-width:80px">
-    <div class="pay-bar">
-      <div class="pay-bar-seg" style="width:${pct(pr)}%;background:var(--r-color)"></div>
-      <div class="pay-bar-seg" style="width:${pct(pc)}%;background:var(--c-color)"></div>
-      <div class="pay-bar-seg" style="width:${pct(ps)}%;background:var(--s-color)"></div>
-    </div>
-    <div style="font-size:10px;color:var(--fg-faint);text-align:right">${pct(pr+pc+ps)}%</div>
+// ── Mini % bar (uses dynamic paid data) ──────────────────────
+function pctBar(itemName, rb, cb, sb) {
+  const ip    = ITEM_PAGADO[itemName] || { r:0, c:0, s:0 };
+  const total = rb + cb + sb;
+  const pag   = ip.r + ip.c + ip.s;
+
+  // Zero-budget items with payments: show full bar (accumulated)
+  if (!total) {
+    if (!pag) return '<span style="color:var(--fg-faint);font-size:12px">—</span>';
+    return `<div style="display:flex;flex-direction:column;gap:3px;min-width:60px">
+      <div class="pct-bar"><div class="pct-fill" style="width:100%;background:var(--c-color)"></div></div>
+      <div style="font-size:10px;color:var(--fg-faint);text-align:right">$${fmt(pag)}</div>
+    </div>`;
+  }
+
+  const pct = Math.min(100, Math.round(pag / total * 100));
+  const color = pct >= 100 ? 'var(--s-color)' : pct > 0 ? 'var(--c-color)' : 'var(--border)';
+  return `<div style="display:flex;flex-direction:column;gap:3px;min-width:60px">
+    <div class="pct-bar"><div class="pct-fill" style="width:${pct}%;background:${color}"></div></div>
+    <div style="font-size:10px;color:var(--fg-faint);text-align:right">${pct}%</div>
   </div>`;
 }
 
-// ── Mini % bar for dist tab ────────────────────────────────────
-function pctBar(pag, total) {
-  if (!total) return '<span style="color:var(--fg-faint);font-size:12px">—</span>';
+// ── Footer pctBar (totals row) ────────────────────────────────
+function pctBarTotals(pr, pc, ps, rb, cb, sb) {
+  const total = rb + cb + sb;
+  const pag   = pr + pc + ps;
+  if (!total && !pag) return '<span style="color:var(--fg-faint);font-size:12px">—</span>';
+  if (!total) {
+    return `<div style="display:flex;flex-direction:column;gap:3px;min-width:60px">
+      <div class="pct-bar"><div class="pct-fill" style="width:100%;background:var(--c-color)"></div></div>
+      <div style="font-size:10px;color:var(--fg-faint);text-align:right">$${fmt(pag)}</div>
+    </div>`;
+  }
   const pct = Math.min(100, Math.round(pag / total * 100));
   const color = pct >= 100 ? 'var(--s-color)' : pct > 0 ? 'var(--c-color)' : 'var(--border)';
   return `<div style="display:flex;flex-direction:column;gap:3px;min-width:60px">
@@ -299,8 +354,10 @@ function pctBar(pag, total) {
 
 function renderTable() {
   const m = mode;
-  const CONF = computeTotals(ITEMS.filter(x => !x.est));
-  const EST  = computeTotals(ITEMS.filter(x =>  x.est));
+  // Include zero-budget items that have payments in "confirmado" or "estimado"
+  const confItems = ITEMS.filter(x => !x.est || ((ITEM_PAGADO[x.item]||{r:0}).r + (ITEM_PAGADO[x.item]||{c:0}).c + (ITEM_PAGADO[x.item]||{s:0}).s) > 0);
+  const CONF = computeTotals(confItems.filter(x => !x.est));
+  const EST  = computeTotals(confItems.filter(x =>  x.est));
   renderDist(m, CONF, EST);
 }
 
@@ -316,6 +373,22 @@ function renderDist(m, CONF, EST) {
            (vis.s?T[m==='neto'?'sn':'sb']:0);
   }
 
+  // Compute footer paid totals dynamically
+  function footerPaid(items) {
+    return items.reduce((acc, x) => {
+      const ip = ITEM_PAGADO[x.item] || { r:0, c:0, s:0 };
+      acc.pr += ip.r; acc.pc += ip.c; acc.ps += ip.s;
+      acc.rb += x.rb; acc.cb += x.cb; acc.sb += x.sb;
+      return acc;
+    }, { pr:0, pc:0, ps:0, rb:0, cb:0, sb:0 });
+  }
+
+  const confItems = ITEMS.filter(x => !x.est);
+  const estItems  = ITEMS.filter(x =>  x.est);
+  const CF = footerPaid(confItems);
+  const EF = footerPaid(estItems);
+  const TF = { pr: CF.pr+EF.pr, pc: CF.pc+EF.pc, ps: CF.ps+EF.ps, rb: CF.rb+EF.rb, cb: CF.cb+EF.cb, sb: CF.sb+EF.sb };
+
   document.getElementById('root').innerHTML = `
     <div class="card" style="padding:0">
       <div class="table-wrap"><table>
@@ -329,9 +402,13 @@ function renderDist(m, CONF, EST) {
           ${ITEMS.map((row, i)=>{
             const est = row.est;
             row._id = i;
-            const rowTotal = row.rb + row.cb + row.sb;
-            const rowPag   = row.pr + row.pc + row.ps;
-            const ncols = cols.length + 3; // item + family cols + total + pagado
+            const ip = ITEM_PAGADO[row.item] || { r:0, c:0, s:0 };
+            const totalPagItem = ip.r + ip.c + ip.s;
+
+            // Skip zero-budget items with no payments
+            if (row.rb === 0 && row.cb === 0 && row.sb === 0 && !totalPagItem) return '';
+
+            const ncols = cols.length + 3;
             return `<tr class="item-row${est?' style-muted':''}" id="item-${i}"
                 onclick="toggleRow(${i})"
                 ${est?'style="color:var(--fg-muted)"':''}>
@@ -339,31 +416,30 @@ function renderDist(m, CONF, EST) {
                 ? `<em style="font-style:italic">${row.item}</em>`
                 : `<strong>${row.item}</strong>`
               }${est?' <span style="font-size:10px;opacity:0.6">(ref.)</span>':''}</td>
-              ${cols.map(c=>`<td class="num">$${fmt(row[c.key])}</td>`).join('')}
-              <td class="num" style="font-weight:500">$${fmt(
-                (vis.r?(m==='neto'?row.rn:row.rb):0)+
-                (vis.c?(m==='neto'?row.cn:row.cb):0)+
-                (vis.s?(m==='neto'?row.sn:row.sb):0)
-              )}</td>
-              <td style="padding-right:8px">${pctBar(rowPag, rowTotal)}</td>
+              ${cols.map(c=>`<td class="num">${row[c.key] > 0 ? `$${fmt(row[c.key])}` : '<span style="color:var(--fg-faint)">—</span>'}</td>`).join('')}
+              <td class="num" style="font-weight:500">${(()=>{
+                const v = (vis.r?(m==='neto'?row.rn:row.rb):0)+
+                          (vis.c?(m==='neto'?row.cn:row.cb):0)+
+                          (vis.s?(m==='neto'?row.sn:row.sb):0);
+                return v > 0 ? `$${fmt(v)}` : `<span style="color:var(--fg-faint)">$${fmt(totalPagItem)}</span>`;
+              })()}</td>
+              <td style="padding-right:8px">${pctBar(row.item, row.rb, row.cb, row.sb)}</td>
             </tr>
             ${detailHtml(row, ncols)}`;
           }).join('')}
         </tbody>
         <tfoot>
           ${[
-            { T:CONF,   label:'Confirmado', style:'font-weight:600;border-top:2px solid var(--border)', em:false },
-            { T:EST,    label:'+ Estimado', style:'color:var(--fg-muted);font-size:13px', em:true },
-            { T:TOTALS, label:'TOTAL',      style:'font-weight:700;border-top:1px solid var(--border)', em:false },
-          ].map(({T,label,style,em})=>{
-            const tb  = T.rb + T.cb + T.sb;
-            const pag = T.pr + T.pc + T.ps;
+            { label:'Confirmado', style:'font-weight:600;border-top:2px solid var(--border)', em:false, T:CONF, F:CF },
+            { label:'+ Estimado', style:'color:var(--fg-muted);font-size:13px', em:true,  T:EST,  F:EF },
+            { label:'TOTAL',      style:'font-weight:700;border-top:1px solid var(--border)', em:false, T:TOTALS, F:TF },
+          ].map(({label,style,em,T,F})=>{
             const w = v => em ? `<em>$${fmt(v)}</em>` : `$${fmt(v)}`;
             return `<tr style="${style}">
               <td>${em?`<em>${label}</em>`:label}</td>
-              ${cols.map(c=>`<td class="num">${w(T[c.key])}</td>`).join('')}
+              ${cols.map(c=>`<td class="num">${w(T[c.key]||0)}</td>`).join('')}
               <td class="num">${w(visTotal(T))}</td>
-              <td style="padding-right:8px">${pctBar(pag, tb)}</td>
+              <td style="padding-right:8px">${pctBarTotals(F.pr,F.pc,F.ps,F.rb,F.cb,F.sb)}</td>
             </tr>`;
           }).join('')}
         </tfoot>
@@ -375,17 +451,10 @@ function renderDist(m, CONF, EST) {
     </p>`;
 }
 
-function computePagado(pagos) {
-  const p = { r:0, c:0, s:0 };
-  (pagos || []).forEach(pago => {
-    const k = pago.familia === 'Riedel Palma' ? 'r' : pago.familia === 'Chico' ? 'c' : 's';
-    p[k] += Number(pago.monto) || 0;
-  });
-  return p;
-}
-
 async function init() {
-  ITEMS  = ITEMS_FIXED.slice();
+  ITEMS       = ITEMS_FIXED.slice();
+  ITEM_PAGADO = {};
+  ITEMS.forEach(x => { ITEM_PAGADO[x.item] = { r:0, c:0, s:0 }; });
   TOTALS = computeTotals(ITEMS);
   renderTiles();
   renderTable();
@@ -402,13 +471,14 @@ async function init() {
         rn: banq.rn||0, rb: banq.rb||0,
         cn: banq.cn||0, cb: banq.cb||0,
         sn: banq.sn||0, sb: banq.sb||0,
-        pr: 1500000, pc: 0, ps: 1500000,
       };
-      ITEMS  = [ITEMS_FIXED[0], banqRow, ...ITEMS_FIXED.slice(1)];
+      ITEMS = [ITEMS_FIXED[0], banqRow, ...ITEMS_FIXED.slice(1)];
       TOTALS = computeTotals(ITEMS);
     }
 
-    PAGADO = computePagado(pagos);
+    PAGADO      = computePagado(pagos);
+    ITEM_PAGADO = computeItemPagos(pagos, ITEMS);
+
     renderTiles();
     renderTable();
   } catch(e) { /* continúa sin datos remotos */ }
