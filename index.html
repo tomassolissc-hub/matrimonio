@@ -39,9 +39,9 @@ highlightNav();
 // Maquilladora, Comida extra, Pista de Baile, Ceremonia,
 // Saxofonista, Flores, Extras  (todos × 1.19 IVA normal)
 const FIXED = {
-  r: { n: 12475784, b: 14846183 },
-  c: { n:  6237892, b:  7423092 },
-  s: { n:  6237892, b:  7423092 },
+  r: { n: 11992423, b: 14270983 },
+  c: { n:  5996210, b:  7135492 },
+  s: { n:  5996210, b:  7135492 },
 };
 
 const root = document.getElementById('root');
@@ -273,26 +273,13 @@ async function render() {
 
   // Actualizar desde la API en segundo plano
   try {
-    const [banq, pagos, gastos] = await Promise.all([
+    const [banq, pagos] = await Promise.all([
       apiFetch('banquetera'),
       apiFetch('pagos'),
-      apiFetch('gastos'),
     ]);
-    // Actualizar FIXED con datos reales del sheet para que los totales cuadren
-    if (gastos && !gastos.error && gastos.totals) {
-      const t = gastos.totals;
-      FIXED.r.b = t.rb||0; FIXED.r.n = t.rn||0;
-      FIXED.c.b = t.cb||0; FIXED.c.n = t.cn||0;
-      FIXED.s.b = t.sb||0; FIXED.s.n = t.sn||0;
-    }
     if (banq && !banq.error) {
       setCached(BANQ_CACHE_KEY, banq);
       applyBanq(banq);
-    } else {
-      BRUTO = { r: FIXED.r.b, c: FIXED.c.b, s: FIXED.s.b };
-      NETO  = { r: FIXED.r.n, c: FIXED.c.n, s: FIXED.s.n };
-      BRUTO_TOTAL = BRUTO.r + BRUTO.c + BRUTO.s;
-      NETO_TOTAL  = NETO.r  + NETO.c  + NETO.s;
     }
     const data = pagos || [];
     setCached(PAGOS_CACHE_KEY, data);
