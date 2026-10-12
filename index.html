@@ -24,7 +24,7 @@
 
 <!-- Modal editar pago -->
 <div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center;padding:20px">
-  <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:24px;width:100%;max-width:400px;box-shadow:0 16px 48px rgba(0,0,0,.35)">
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;width:100%;max-width:400px;box-shadow:0 16px 48px rgba(0,0,0,.4)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
       <span style="font-weight:600;font-size:15px">Editar pago</span>
       <button onclick="cerrarModal()" style="background:none;border:none;cursor:pointer;color:var(--fg-muted);font-size:20px;line-height:1">×</button>
@@ -209,7 +209,7 @@ function renderLiquidacion(pagos) {
     const total = (restoPagado[k]||0) + (banqPagado[k]||0);
     const color = net[k] > 100 ? 'var(--green,#22c55e)' : net[k] < -100 ? 'var(--red,#ef4444)' : 'var(--fg-muted)';
     const tag = net[k] > 100 ? '← te deben' : net[k] < -100 ? '→ debes' : '✔ al día';
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid var(--border);font-size:13px">
       ${badge(k)}
       <span style="color:var(--fg-muted)">pagó $${fmt(total)}</span>
       <span style="font-weight:600;color:${color}">${tag} $${fmt(Math.abs(net[k]))}</span>
@@ -218,21 +218,23 @@ function renderLiquidacion(pagos) {
 
   const transferRows = transfers.length
     ? transfers.map(t => `
-    <div style="display:flex;align-items:center;gap:8px;padding:11px 0;border-bottom:1px solid var(--border)">
+    <div style="display:flex;align-items:center;gap:10px;padding:16px 0;border-bottom:1px solid var(--border)">
       ${badge(t.from)}
-      <span style="color:var(--fg-faint);font-size:18px">→</span>
+      <span style="color:var(--fg-faint);font-size:20px;line-height:1">→</span>
       ${badge(t.to)}
       <span style="flex:1"></span>
-      <span style="font-size:16px;font-weight:700;font-variant-numeric:tabular-nums">$${fmt(t.amount)}</span>
+      <span style="font-size:18px;font-weight:700;font-variant-numeric:tabular-nums">$${fmt(t.amount)}</span>
     </div>`).join('')
-    : `<p style="font-size:13px;color:var(--fg-muted);padding:8px 0">✅ Sin transferencias pendientes.</p>`;
+    : `<p style="font-size:13px;color:var(--fg-muted);padding:12px 0">✅ Sin transferencias pendientes.</p>`;
 
   return `
-    <div style="font-size:11px;font-weight:600;color:var(--fg-muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px">Total pagado: $${fmt(totalGeneral)}</div>
+    <div style="font-size:11px;font-weight:600;color:var(--fg-muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Total pagado entre todos</div>
+    <div style="font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;margin-bottom:16px">$${fmt(totalGeneral)}</div>
     ${resumenRows}
-    <div style="font-size:11px;font-weight:600;color:var(--fg-muted);letter-spacing:.05em;text-transform:uppercase;margin:16px 0 6px">Transferencias para quedar a mano</div>
+    <div style="font-size:11px;font-weight:600;color:var(--fg-muted);letter-spacing:.06em;text-transform:uppercase;margin:24px 0 4px">Transferencias para quedar a mano</div>
+    <p style="font-size:12px;color:var(--fg-muted);margin:0 0 8px">Si el matrimonio terminara hoy, esto es lo que hay que mover.</p>
     ${transferRows}
-    <p style="font-size:11px;color:var(--fg-faint);margin-top:10px">Split 50/25/25 sobre todo excepto banquetera (que va por invitados). Si el matrimonio terminara hoy, esto es lo que se debería transferir.</p>
+    <p style="font-size:11px;color:var(--fg-faint);margin-top:14px">Split 50/25/25 sobre todo excepto banquetera (que va por número de invitados).</p>
   `;
 }
 
@@ -372,6 +374,12 @@ function renderPanel(pagos) {
   const pct = brutoTotal > 0 ? Math.min(100, Math.round(pagadoTotal / brutoTotal * 100)) : 0;
 
   root.innerHTML = `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+      <a href="#liquidacion" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border);color:var(--fg);text-decoration:none;font-size:13px;font-weight:500;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+        ⚖️ Ver liquidación
+      </a>
+    </div>
+
     <div class="section-label">Totales generales</div>
     <div class="stat-grid" style="margin-bottom:28px">
       <div class="stat-tile t">
@@ -440,8 +448,8 @@ function renderPanel(pagos) {
       ${renderPagos(pagos)}
     </div>
 
-    <div class="section-label">Liquidación entre familias</div>
-    <div class="card" style="margin-bottom:28px">
+    <div class="section-label" id="liquidacion" style="scroll-margin-top:72px">Liquidación entre familias</div>
+    <div class="card" style="margin-bottom:28px;padding:24px 20px">
       ${renderLiquidacion(pagos)}
     </div>
   `;
