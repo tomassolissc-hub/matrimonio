@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Gastos — Matrimonio 2026</title>
+<title>Resumen — Matrimonio 2026</title>
 <link rel="stylesheet" href="style.css">
 <style>
 /* Expandable rows */
@@ -108,25 +108,24 @@ tr.item-row.open .chevron {
       <li><a href="gastos.html">Gastos</a></li>
       <li><a href="invitados.html">Invitados</a></li>
       <li><a href="pagos.html">Pagos</a></li>
+      <li><a href="familia.html">Mi resumen</a></li>
     </ul>
     <button class="theme-toggle" id="theme-toggle" aria-label="Cambiar tema">🌙</button>
   </div>
 </nav>
 
 <main class="page">
-  <h1 class="page-title">Gastos detallados</h1>
+  <h1 class="page-title">Resumen de gastos</h1>
 
   <!-- Stat tiles siempre en bruto -->
   <div class="stat-grid" style="margin-bottom:24px" id="tiles"></div>
 
-  <!-- Tabs -->
-  <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border)">
-    <button class="tab-btn active" id="tab-dist" onclick="setTab('dist')">Distribución</button>
-    <button class="tab-btn" id="tab-pagos" onclick="setTab('pagos')">Pagos</button>
-  </div>
+  <p style="font-size:12px;color:var(--fg-faint);margin:-8px 0 16px">
+    💡 Haz click en cualquier ítem para ver el detalle de cuánto ha pagado cada familia.
+  </p>
 
-  <!-- Controles distribución -->
-  <div id="ctrl-dist" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+  <!-- Controles -->
+  <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
     <button class="btn btn-primary" id="btn-mode" onclick="toggleMode()">Ver neto (sin IVA)</button>
     <button class="btn" id="btn-r" onclick="toggleFam('r')">Riedel Palma</button>
     <button class="btn" id="btn-c" onclick="toggleFam('c')">Chico</button>
@@ -158,7 +157,6 @@ const ITEMS_FIXED = [
 ];
 
 let mode   = 'bruto';
-let tab    = 'dist';
 let vis    = { r:true, c:true, s:true };
 let ITEMS  = ITEMS_FIXED.slice();
 let TOTALS = {};
@@ -175,14 +173,6 @@ function computeTotals(items) {
     return acc;
   }, { rb:0, rn:0, cb:0, cn:0, sb:0, sn:0, tb:0, tn:0, pr:0, pc:0, ps:0 });
 }
-
-window.setTab = t => {
-  tab = t;
-  document.getElementById('tab-dist').classList.toggle('active', t === 'dist');
-  document.getElementById('tab-pagos').classList.toggle('active', t === 'pagos');
-  document.getElementById('ctrl-dist').style.display = t === 'dist' ? 'flex' : 'none';
-  renderTable();
-};
 
 window.toggleMode = () => {
   mode = mode === 'neto' ? 'bruto' : 'neto';
@@ -311,12 +301,7 @@ function renderTable() {
   const m = mode;
   const CONF = computeTotals(ITEMS.filter(x => !x.est));
   const EST  = computeTotals(ITEMS.filter(x =>  x.est));
-
-  if (tab === 'dist') {
-    renderDist(m, CONF, EST);
-  } else {
-    renderPagos(CONF, EST);
-  }
+  renderDist(m, CONF, EST);
 }
 
 function renderDist(m, CONF, EST) {
@@ -388,70 +373,6 @@ function renderDist(m, CONF, EST) {
       Modo: <strong>${m==='neto'?'Neto (sin IVA — 9,5% Banquetera / 19% resto)':'Bruto (con IVA — 9,5% Banquetera / 19% resto)'}</strong>
       · <em>Ítems en cursiva son valores referenciales sin contrato firmado.</em>
     </p>`;
-}
-
-function renderPagos(CONF, EST) {
-  document.getElementById('root').innerHTML = `
-    <div class="card" style="padding:0">
-      <div class="table-wrap"><table>
-        <thead><tr>
-          <th>Ítem</th>
-          <th class="num">Costo total</th>
-          <th style="min-width:110px">R / C / S</th>
-          <th class="num">Pagado</th>
-          <th class="num">Pendiente</th>
-        </tr></thead>
-        <tbody>
-          ${ITEMS.map((row, i)=>{
-            const est   = row.est;
-            row._id = i;
-            const total = row.rb + row.cb + row.sb;
-            const pag   = row.pr + row.pc + row.ps;
-            const pend  = Math.max(0, total - pag);
-            return `<tr class="item-row" id="item-${i}"
-                onclick="toggleRow(${i})"
-                ${est?'style="color:var(--fg-muted)"':''}>
-              <td><span class="chevron">▶</span>${est
-                ? `<em>${row.item}</em>`
-                : `<strong>${row.item}</strong>`
-              }${est?' <span style="font-size:10px;opacity:0.6">(ref.)</span>':''}</td>
-              <td class="num">$${fmt(total)}</td>
-              <td style="padding-right:8px">${stackedBar(row)}</td>
-              <td class="num" style="color:${pag>0?'var(--s-color)':'var(--fg-faint)'}">$${fmt(pag)}</td>
-              <td class="num" style="color:${pend>0?'var(--r-color)':'var(--fg-faint)'}">$${pend>0?fmt(pend):'—'}</td>
-            </tr>
-            ${detailHtml(row, 5)}`;
-          }).join('')}
-        </tbody>
-        <tfoot>
-          ${[
-            { T:CONF,   label:'Confirmado', style:'font-weight:600;border-top:2px solid var(--border)', em:false },
-            { T:EST,    label:'+ Estimado', style:'color:var(--fg-muted);font-size:13px', em:true },
-            { T:TOTALS, label:'TOTAL',      style:'font-weight:700;border-top:1px solid var(--border)', em:false },
-          ].map(({T,label,style,em})=>{
-            const tb  = T.rb + T.cb + T.sb;
-            const pag = T.pr + T.pc + T.ps;
-            const pend = Math.max(0, tb - pag);
-            const w = v => em ? `<em>$${fmt(v)}</em>` : `$${fmt(v)}`;
-            // tfoot stacked bar using totals
-            const fakeRow = { rb:T.rb, cb:T.cb, sb:T.sb, pr:T.pr, pc:T.pc, ps:T.ps };
-            return `<tr style="${style}">
-              <td>${em?`<em>${label}</em>`:label}</td>
-              <td class="num">${w(tb)}</td>
-              <td style="padding-right:8px">${em ? '' : stackedBar(fakeRow)}</td>
-              <td class="num" style="color:${pag>0?'var(--s-color)':'var(--fg-faint)'}">${w(pag)}</td>
-              <td class="num" style="color:${pend>0?'var(--r-color)':'var(--fg-faint)'}">${w(pend)}</td>
-            </tr>`;
-          }).join('')}
-        </tfoot>
-      </table></div>
-    </div>
-    <div style="margin-top:12px;display:flex;gap:16px;font-size:12px;color:var(--fg-muted);flex-wrap:wrap">
-      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--r-color);vertical-align:middle;margin-right:4px"></span>Riedel Palma</span>
-      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--c-color);vertical-align:middle;margin-right:4px"></span>Chico</span>
-      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--s-color);vertical-align:middle;margin-right:4px"></span>Solís Soto</span>
-      <span style="margin-left:4px;color:var(--fg-faint)"><em>Ítems en cursiva son valores referenciales.</em></span>
-    </div>`;
 }
 
 function computePagado(pagos) {
