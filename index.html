@@ -162,18 +162,38 @@ function renderPanel(pagos) {
   `;
 }
 
-async function render() {
-  // Mostrar datos hardcodeados inmediatamente (sin esperar fetch)
-  renderPanel([]);
+const PAGOS_CACHE_KEY = 'panel_pagos_v1';
 
-  // Intentar cargar pagos en segundo plano
+function getCachedPagos() {
+  try {
+    const raw = localStorage.getItem(PAGOS_CACHE_KEY);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    // Usar caché por hasta 10 minutos
+    if (Date.now() - ts < 10 * 60 * 1000) return data;
+  } catch(e) {}
+  return null;
+}
+function setCachedPagos(data) {
+  try { localStorage.setItem(PAGOS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch(e) {}
+}
+
+async function render() {
+  // Mostrar caché local inmediatamente si existe, si no lista vacía
+  const cached = getCachedPagos();
+  renderPanel(cached || []);
+
+  // Actualizar en segundo plano
   try {
     const pagos = await apiFetch('pagos');
-    renderPanel(pagos || []);
+    const data  = pagos || [];
+    setCachedPagos(data);
+    renderPanel(data);
   } catch(e) {
-    const card = document.getElementById('pagos-card');
-    if (card) {
-      card.innerHTML = `<p style="color:var(--fg-muted);font-size:13px;padding:8px 0">
+    // Si ya teníamos caché, quedamos con eso; si no, mostrar error
+    if (!cached) {
+      const card = document.getElementById('pagos-card');
+      if (card) card.innerHTML = `<p style="color:var(--fg-muted);font-size:13px;padding:8px 0">
         No se pudieron cargar los pagos. <a href="pagos.html" style="color:var(--accent-fg)">Ir a pagos →</a>
       </p>`;
     }
