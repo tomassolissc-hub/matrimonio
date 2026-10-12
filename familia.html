@@ -131,21 +131,34 @@ function buildItems(banq) {
   return items;
 }
 
-function computeFromPagos(pagos) {
-  const paid = { r:0, c:0, s:0 };
+function computeFromPagos(pagos, items) {
+  const totalPaid = { r:0, c:0, s:0 };
+  const itemPaid  = {};
+  items.forEach(x => { itemPaid[x.item] = { r:0, c:0, s:0 }; });
+  itemPaid['Banquetera'] = { r:0, c:0, s:0 };
+
   (pagos||[]).forEach(p => {
     const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
-    paid[k] += Number(p.monto)||0;
+    const monto = Number(p.monto)||0;
+    totalPaid[k] += monto;
+    // Matchear concepto con nombre de ítem
+    const concepto = String(p.concepto||'').toLowerCase();
+    for (const nombre of Object.keys(itemPaid)) {
+      if (concepto.startsWith(nombre.toLowerCase()) || concepto.includes(nombre.toLowerCase())) {
+        itemPaid[nombre][k] += monto;
+        break;
+      }
+    }
   });
-  return paid;
+
+  return { totalPaid, itemPaid };
 }
 
 function render() {
   const items  = buildItems(banqData);
-  const paid   = computeFromPagos(pagosData);
+  const { totalPaid: paid, itemPaid } = computeFromPagos(pagosData, ITEMS_FIXED);
   const k      = fam;
   const bKey   = k + 'b'; // rb / cb / sb
-  const pKey   = 'p' + k; // pr / pc / ps
 
   const totalShare  = items.reduce((s, x) => s + (x[bKey]||0), 0);
   const totalPaid   = paid[k];
@@ -169,7 +182,7 @@ function render() {
 
   function itemLine(x) {
     const share = x[bKey]||0;
-    const ipaid = x[pKey]||0;
+    const ipaid = (itemPaid[x.item]||{})[k]||0;
     const ipct  = share > 0 ? Math.min(100, Math.round(ipaid / share * 100)) : 0;
     const color = `var(--${k}-color)`;
     return `<div class="item-line">
