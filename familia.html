@@ -89,17 +89,17 @@ initTheme();
 highlightNav();
 
 const ITEMS_FIXED = [
-  { item:'Centro de Eventos', rn:4423284, rb:5263708, cn:2211642, cb:2631854, sn:2211642, sb:2631854, pr:2114095, pc:0,      ps:2150000 },
-  { item:'DJ',                rn:777311,  rb:925000,  cn:388655,  cb:462500,  sn:388655,  sb:462500,  pr:0,       pc:925000, ps:0       },
-  { item:'Fotógrafo',         rn:756303,  rb:900000,  cn:378151,  cb:450000,  sn:378151,  sb:450000,  pr:900000,  pc:0,      ps:0       },
-  { item:'Videógrafo',        rn:546218,  rb:650000,  cn:273109,  cb:325000,  sn:273109,  sb:325000,  pr:0,       pc:650000, ps:0       },
-  { item:'Maquilladora',      rn:0,       rb:0,       cn:0,       cb:0,       sn:0,       sb:0,       pr:0,       pc:0,      ps:0,      est:true },
-  { item:'Comida extra',      rn:30000,   rb:35700,   cn:15000,   cb:17850,   sn:15000,   sb:17850,   pr:0,       pc:0,      ps:0       },
-  { item:'Pista de Baile',    rn:261765,  rb:311500,  cn:130882,  cb:155750,  sn:130882,  sb:155750,  pr:0,       pc:311500, ps:0       },
-  { item:'Ceremonia',         rn:0,       rb:0,       cn:0,       cb:0,       sn:0,       sb:0,       pr:0,       pc:0,      ps:0,      est:true },
-  { item:'Saxofonista',       rn:105042,  rb:125000,  cn:52521,   cb:62500,   sn:52521,   sb:62500,   pr:62500,   pc:62500,  ps:0       },
-  { item:'Flores',            rn:800000,  rb:952000,  cn:400000,  cb:476000,  sn:400000,  sb:476000,  pr:0,       pc:0,      ps:0,      est:true },
-  { item:'Extras',            rn:4292500, rb:5108075, cn:2146250, cb:2554038, sn:2146250, sb:2554038, pr:0,       pc:0,      ps:0,      est:true },
+  { item:'Centro de Eventos', rn:4423284, rb:5263708, cn:2211642, cb:2631854, sn:2211642, sb:2631854 },
+  { item:'DJ',                rn:777311,  rb:925000,  cn:388655,  cb:462500,  sn:388655,  sb:462500  },
+  { item:'Fotógrafo',         rn:756303,  rb:900000,  cn:378151,  cb:450000,  sn:378151,  sb:450000  },
+  { item:'Videógrafo',        rn:546218,  rb:650000,  cn:273109,  cb:325000,  sn:273109,  sb:325000  },
+  { item:'Maquilladora',      rn:0,       rb:0,       cn:0,       cb:0,       sn:0,       sb:0,       est:true },
+  { item:'Comida extra',      rn:30000,   rb:35700,   cn:15000,   cb:17850,   sn:15000,   sb:17850   },
+  { item:'Pista de Baile',    rn:261765,  rb:311500,  cn:130882,  cb:155750,  sn:130882,  sb:155750  },
+  { item:'Ceremonia',         rn:0,       rb:0,       cn:0,       cb:0,       sn:0,       sb:0,       est:true },
+  { item:'Saxofonista',       rn:105042,  rb:125000,  cn:52521,   cb:62500,   sn:52521,   sb:62500   },
+  { item:'Flores',            rn:800000,  rb:952000,  cn:400000,  cb:476000,  sn:400000,  sb:476000,  est:true },
+  { item:'Extras',            rn:4292500, rb:5108075, cn:2146250, cb:2554038, sn:2146250, sb:2554038, est:true },
 ];
 
 const LABELS = { r: 'Riedel Palma', c: 'Chico', s: 'Solís Soto' };
@@ -180,9 +180,15 @@ function render() {
   // Actualizar URL sin recargar
   history.replaceState(null,'',`?f=${k}`);
 
-  // Items con presupuesto > 0, o con pagos aunque presupuesto sea 0
-  const estItems  = items.filter(x => x.est && ((x[bKey]||0) > 0 || (itemPaid[x.item]||{})[k] > 0));
-  const realItems = items.filter(x => !x.est && ((x[bKey]||0) > 0 || (itemPaid[x.item]||{})[k] > 0));
+  // Un ítem est:true pasa a "contratado" en cuanto CUALQUIER familia lo haya pagado
+  const anyFamPaid = x => {
+    const ip = itemPaid[x.item] || {};
+    return (ip.r||0) + (ip.c||0) + (ip.s||0) > 0;
+  };
+  const isEstFam = x => x.est && !anyFamPaid(x);
+
+  const estItems  = items.filter(x =>  isEstFam(x) && ((x[bKey]||0) > 0 || (itemPaid[x.item]||{})[k] > 0));
+  const realItems = items.filter(x => !isEstFam(x) && ((x[bKey]||0) > 0 || (itemPaid[x.item]||{})[k] > 0));
   const zeroItems = items.filter(x => !x.est && (x[bKey]||0) === 0 && !((itemPaid[x.item]||{})[k] > 0));
 
   // Pagos de esta familia, orden cronológico inverso
@@ -201,7 +207,7 @@ function render() {
       ? `$${fmt(share)}`
       : `<span style="color:var(--fg-faint);font-size:11px">acumulado</span>`;
     return `<div class="item-line">
-      <div class="item-name${x.est?' est':''}">${x.item}${x.est?' ★':''}</div>
+      <div class="item-name${isEstFam(x)?' est':''}">${x.item}${isEstFam(x)?' ★':''}</div>
       <div class="item-bar-wrap">
         <div class="item-bar"><div class="item-bar-fill" style="width:${ipct}%;background:${color}"></div></div>
         <div class="item-pct" style="color:${color}">${ipct}%</div>
