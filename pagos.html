@@ -26,6 +26,37 @@
   <h1 class="page-title">Pagos y comprobantes</h1>
   <p class="page-subtitle">Registra pagos y sube los comprobantes de transferencia</p>
 
+  <!-- Modal editar pago -->
+  <div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:24px;width:100%;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+        <span style="font-weight:600;font-size:15px">Editar pago</span>
+        <button onclick="cerrarModal()" style="background:none;border:none;cursor:pointer;color:var(--fg-muted);font-size:20px;line-height:1">×</button>
+      </div>
+      <input type="hidden" id="edit-id">
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">Familia</label>
+        <select class="form-select" id="edit-familia">
+          <option value="Riedel Palma">Riedel Palma</option>
+          <option value="Chico">Chico</option>
+          <option value="Solís Soto">Solís Soto</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">Concepto</label>
+        <input class="form-input" id="edit-concepto" type="text">
+      </div>
+      <div class="form-group" style="margin-bottom:18px">
+        <label class="form-label">Monto ($)</label>
+        <input class="form-input" id="edit-monto" type="number" min="0">
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn" onclick="cerrarModal()" style="flex:1">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarEdicion()" style="flex:1">Guardar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Formulario nuevo pago -->
   <div class="card" style="margin-bottom:20px">
     <div class="section-label">Registrar pago</div>
@@ -103,6 +134,31 @@ window.eliminarPago = async function(id) {
     const res = await apiPost({ action: 'deletePago', id });
     if (res.ok) { toast('Pago eliminado'); loadPagos(); }
     else toast(res.error || 'Error al eliminar', false);
+  } catch(e) { toast(e.message || 'Error', false); }
+};
+
+window.editarPago = function(id, familia, concepto, monto) {
+  document.getElementById('edit-id').value      = id;
+  document.getElementById('edit-familia').value  = familia;
+  document.getElementById('edit-concepto').value = concepto;
+  document.getElementById('edit-monto').value    = monto;
+  document.getElementById('edit-modal').style.display = 'flex';
+};
+
+window.cerrarModal = function() {
+  document.getElementById('edit-modal').style.display = 'none';
+};
+
+window.guardarEdicion = async function() {
+  const id      = document.getElementById('edit-id').value;
+  const familia = document.getElementById('edit-familia').value;
+  const concepto= document.getElementById('edit-concepto').value.trim();
+  const monto   = parseFloat(document.getElementById('edit-monto').value);
+  if (!familia || !concepto || !monto) { toast('Completa todos los campos', false); return; }
+  try {
+    const res = await apiPost({ action: 'editPago', id, data: { familia, concepto, monto } });
+    if (res.ok) { toast('Pago actualizado ✓'); cerrarModal(); loadPagos(); }
+    else toast(res.error || 'Error', false);
   } catch(e) { toast(e.message || 'Error', false); }
 };
 
@@ -234,7 +290,10 @@ async function loadPagos() {
               <td>${p.comprobante
                 ? `<a href="${p.comprobante}" target="_blank" class="btn" style="font-size:11px;padding:4px 10px">Ver 🔗</a>`
                 : '<span style="color:var(--fg-faint);font-size:12px">—</span>'}</td>
-              <td><button onclick="eliminarPago('${p.id}')" style="background:none;border:none;cursor:pointer;color:var(--fg-faint);font-size:16px;padding:2px 6px;line-height:1" title="Eliminar">×</button></td>
+              <td style="white-space:nowrap">
+                <button onclick="editarPago('${p.id}','${p.familia}',${JSON.stringify(p.concepto)},${p.monto})" style="background:none;border:none;cursor:pointer;color:var(--fg-muted);font-size:14px;padding:2px 5px;line-height:1" title="Editar">✏️</button>
+                <button onclick="eliminarPago('${p.id}')" style="background:none;border:none;cursor:pointer;color:var(--fg-faint);font-size:16px;padding:2px 5px;line-height:1" title="Eliminar">×</button>
+              </td>
             </tr>`).join('')}
           </tbody>
         </table>
