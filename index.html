@@ -55,8 +55,15 @@
 </div>
 
 <main class="page">
-  <h1 class="page-title">Panel general</h1>
-  <p class="page-subtitle">Matrimonio Riedel Palma &amp; Solís Soto · 2026</p>
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
+    <div>
+      <h1 class="page-title" style="margin:0">Panel general</h1>
+      <p class="page-subtitle" style="margin:4px 0 0">Matrimonio Riedel Palma &amp; Solís Soto · 2026</p>
+    </div>
+    <button id="btn-refresh" onclick="refrescar()" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border);color:var(--fg);cursor:pointer;font-size:13px;font-weight:500;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      🔄 Actualizar
+    </button>
+  </div>
   <div id="root"></div>
 </main>
 
@@ -534,6 +541,15 @@ root.addEventListener('click', e => {
   if (!btn) return;
   editarPago(btn.dataset.id, btn.dataset.familia, btn.dataset.concepto, parseFloat(btn.dataset.monto));
 });
+
+async function refrescar() {
+  const btn = document.getElementById('btn-refresh');
+  if (btn) { btn.textContent = '⏳ Cargando…'; btn.disabled = true; }
+  try { localStorage.removeItem(PAGOS_CACHE_KEY); } catch(e) {}
+  try { localStorage.removeItem(BANQ_CACHE_KEY); } catch(e) {}
+  await render();
+  if (btn) { btn.innerHTML = '🔄 Actualizar'; btn.disabled = false; }
+}
 
 render();
 </script>
