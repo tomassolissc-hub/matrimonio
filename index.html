@@ -153,11 +153,16 @@ function computeItemPagadoPanel(pagos) {
   (pagos||[]).forEach(p => {
     const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
     const monto = Number(p.monto)||0;
-    const concepto = String(p.concepto||'').toLowerCase();
-    for (const nombre of ALL_ITEM_NAMES) {
-      if (concepto.startsWith(nombre.toLowerCase()) || concepto.includes(nombre.toLowerCase())) {
-        result[nombre][k] += monto;
-        break;
+    // Prefer explicit item field; fall back to concepto startsWith for legacy entries
+    if (p.item && result[p.item] !== undefined) {
+      result[p.item][k] += monto;
+    } else {
+      const concepto = String(p.concepto||'').toLowerCase();
+      for (const nombre of ALL_ITEM_NAMES) {
+        if (concepto.startsWith(nombre.toLowerCase())) {
+          result[nombre][k] += monto;
+          break;
+        }
       }
     }
   });
