@@ -44,7 +44,25 @@
         </select>
       </div>
       <div class="form-group" style="margin-bottom:12px">
-        <label class="form-label">Concepto</label>
+        <label class="form-label">Ítem</label>
+        <select class="form-select" id="edit-item">
+          <option value="">— Sin categoría —</option>
+          <option value="Centro de Eventos">Centro de Eventos</option>
+          <option value="Banquetera">Banquetera</option>
+          <option value="DJ">DJ</option>
+          <option value="Fotógrafo">Fotógrafo</option>
+          <option value="Videógrafo">Videógrafo</option>
+          <option value="Maquilladora">Maquilladora</option>
+          <option value="Comida extra">Comida extra</option>
+          <option value="Pista de Baile">Pista de Baile</option>
+          <option value="Ceremonia">Ceremonia</option>
+          <option value="Saxofonista">Saxofonista</option>
+          <option value="Flores">Flores</option>
+          <option value="Extras">Extras</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">Concepto / detalle</label>
         <input class="form-input" id="edit-concepto" type="text">
       </div>
       <div class="form-group" style="margin-bottom:18px">
@@ -138,9 +156,10 @@ window.eliminarPago = async function(id) {
   } catch(e) { toast(e.message || 'Error', false); }
 };
 
-window.editarPago = function(id, familia, concepto, monto) {
+window.editarPago = function(id, familia, concepto, monto, item) {
   document.getElementById('edit-id').value      = id;
   document.getElementById('edit-familia').value  = familia;
+  document.getElementById('edit-item').value     = item || '';
   document.getElementById('edit-concepto').value = concepto;
   document.getElementById('edit-monto').value    = monto;
   document.getElementById('edit-modal').style.display = 'flex';
@@ -153,11 +172,12 @@ window.cerrarModal = function() {
 window.guardarEdicion = async function() {
   const id      = document.getElementById('edit-id').value;
   const familia = document.getElementById('edit-familia').value;
+  const item    = document.getElementById('edit-item').value;
   const concepto= document.getElementById('edit-concepto').value.trim();
   const monto   = parseFloat(document.getElementById('edit-monto').value);
   if (!familia || !concepto || !monto) { toast('Completa todos los campos', false); return; }
   try {
-    const res = await apiPost({ action: 'editPago', id, data: { familia, concepto, monto } });
+    const res = await apiPost({ action: 'editPago', id, data: { familia, concepto, monto, item } });
     if (res.ok) { toast('Pago actualizado ✓'); cerrarModal(); loadPagos(); }
     else toast(res.error || 'Error', false);
   } catch(e) { toast(e.message || 'Error', false); }
@@ -218,7 +238,7 @@ window.submitPago = async () => {
 
   try {
     // 1. Registrar pago
-    const { id } = await apiPost({ action: 'addPago', data: { familia, monto, concepto } });
+    const { id } = await apiPost({ action: 'addPago', data: { familia, monto, concepto, item: item === 'Otro' ? '' : item } });
 
     // 2. Si hay archivo, subirlo
     if (file) {
@@ -295,6 +315,7 @@ async function loadPagos() {
                 ${!p.id.startsWith('G') ? `<button class="btn-edit-pago"
                   data-id="${p.id}"
                   data-familia="${p.familia}"
+                  data-item="${p.item||''}"
                   data-concepto="${(p.concepto||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"
                   data-monto="${p.monto}"
                   style="background:none;border:none;cursor:pointer;color:var(--fg-muted);font-size:14px;padding:2px 5px;line-height:1" title="Editar">✏️</button>` : ''}
@@ -314,7 +335,7 @@ async function loadPagos() {
 listEl.addEventListener('click', e => {
   const btn = e.target.closest('.btn-edit-pago');
   if (!btn) return;
-  editarPago(btn.dataset.id, btn.dataset.familia, btn.dataset.concepto, parseFloat(btn.dataset.monto));
+  editarPago(btn.dataset.id, btn.dataset.familia, btn.dataset.concepto, parseFloat(btn.dataset.monto), btn.dataset.item);
 });
 
 loadPagos();
