@@ -197,12 +197,12 @@ async function render() {
   }
 }
 
-async function refrescar() {
+window.refrescar = async function() {
   const btn = document.getElementById('btn-refresh');
   if (btn) { btn.textContent = '⏳ Cargando…'; btn.disabled = true; }
   await render();
   if (btn) { btn.innerHTML = '🔄 Actualizar'; btn.disabled = false; }
-}
+};
 
 render();
 </script>
