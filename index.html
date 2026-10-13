@@ -542,14 +542,14 @@ root.addEventListener('click', e => {
   editarPago(btn.dataset.id, btn.dataset.familia, btn.dataset.concepto, parseFloat(btn.dataset.monto));
 });
 
-async function refrescar() {
+window.refrescar = async function() {
   const btn = document.getElementById('btn-refresh');
   if (btn) { btn.textContent = '⏳ Cargando…'; btn.disabled = true; }
   try { localStorage.removeItem(PAGOS_CACHE_KEY); } catch(e) {}
   try { localStorage.removeItem(BANQ_CACHE_KEY); } catch(e) {}
   await render();
   if (btn) { btn.innerHTML = '🔄 Actualizar'; btn.disabled = false; }
-}
+};
 
 render();
 </script>
