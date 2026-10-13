@@ -136,6 +136,46 @@ function computeZeroBudgetPaid(pagos) {
   return z;
 }
 
+// Ítems referenciales (est:true) con presupuesto fijo que pueden tener pagos reales
+const EST_ITEMS_REF = [
+  { item: 'Flores', rb: 952000,  cb: 476000,  sb: 476000  },
+  { item: 'Extras', rb: 5108075, cb: 2554038, sb: 2554038 },
+];
+const ALL_ITEM_NAMES = [
+  'Centro de Eventos','DJ',
+  'Fotógrafo','Videógrafo','Maquilladora',
+  'Comida extra','Pista de Baile','Ceremonia',
+  'Saxofonista','Flores','Extras',
+];
+function computeItemPagadoPanel(pagos) {
+  const result = {};
+  ALL_ITEM_NAMES.forEach(n => { result[n] = { r:0, c:0, s:0 }; });
+  (pagos||[]).forEach(p => {
+    const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
+    const monto = Number(p.monto)||0;
+    const concepto = String(p.concepto||'').toLowerCase();
+    for (const nombre of ALL_ITEM_NAMES) {
+      if (concepto.startsWith(nombre.toLowerCase()) || concepto.includes(nombre.toLowerCase())) {
+        result[nombre][k] += monto;
+        break;
+      }
+    }
+  });
+  return result;
+}
+// Ajusta BRUTO: reemplaza montos referenciales por pagos reales cuando existen
+function applyEstAdjustments(pagos) {
+  const ip = computeItemPagadoPanel(pagos);
+  EST_ITEMS_REF.forEach(x => {
+    const paid = ip[x.item] || { r:0, c:0, s:0 };
+    if ((paid.r + paid.c + paid.s) === 0) return;
+    BRUTO.r += paid.r - x.rb;
+    BRUTO.c += paid.c - x.cb;
+    BRUTO.s += paid.s - x.sb;
+  });
+  BRUTO_TOTAL = BRUTO.r + BRUTO.c + BRUTO.s;
+}
+
 // ── Liquidación dos bloques ───────────────────────────────────
 // Bloque A = Riedel (50% del total)
 // Bloque B = Chico + Solís Soto (50% del total, 50/50 interno)
@@ -509,7 +549,8 @@ async function render() {
   NETO  = { r: FIXED.r.n, c: FIXED.c.n, s: FIXED.s.n };
   BRUTO_TOTAL = BRUTO.r + BRUTO.c + BRUTO.s;
   NETO_TOTAL  = NETO.r  + NETO.c  + NETO.s;
-  applyBanq(cachedBanq);           // totales completos si ya tenemos banquetera cacheada
+  applyBanq(cachedBanq);
+  applyEstAdjustments(cachedPagos || []);  // reemplaza referenciales por pagos reales
   renderPanel(cachedPagos || []);
 
   // Actualizar desde la API en segundo plano
@@ -524,6 +565,7 @@ async function render() {
     }
     const data = pagos || [];
     setCached(PAGOS_CACHE_KEY, data);
+    applyEstAdjustments(data);  // reemplaza referenciales por pagos reales en BRUTO
     renderPanel(data);
   } catch(e) {
     if (!cachedPagos) {
