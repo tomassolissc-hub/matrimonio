@@ -116,7 +116,12 @@ tr.item-row.open .chevron {
 </nav>
 
 <main class="page">
-  <h1 class="page-title">Resumen de gastos</h1>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
+    <h1 class="page-title" style="margin:0">Resumen de gastos</h1>
+    <button id="btn-refresh" onclick="refrescar()" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border);color:var(--fg);cursor:pointer;font-size:13px;font-weight:500;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      🔄 Actualizar
+    </button>
+  </div>
 
   <!-- Stat tiles siempre en bruto -->
   <div class="stat-grid" style="margin-bottom:24px" id="tiles"></div>
@@ -378,8 +383,16 @@ function esEst(x) {
 
 function renderTable() {
   const m = mode;
-  const CONF = computeTotals(ITEMS.filter(x => !esEst(x)));
-  const EST  = computeTotals(ITEMS.filter(x =>  esEst(x)));
+  // Para ítems referenciales con pagos reales, sustituir montos por pagos reales
+  const itemsNorm = ITEMS.map(x => {
+    if (!x.est) return x;
+    const ip = ITEM_PAGADO[x.item] || { r:0, c:0, s:0 };
+    const total = ip.r + ip.c + ip.s;
+    if (total === 0) return x;
+    return { ...x, rb: ip.r, cb: ip.c, sb: ip.s, rn: ip.r, cn: ip.c, sn: ip.s };
+  });
+  const CONF = computeTotals(itemsNorm.filter(x => !esEst(x)));
+  const EST  = computeTotals(itemsNorm.filter(x =>  esEst(x)));
   renderDist(m, CONF, EST);
 }
 
@@ -446,6 +459,12 @@ function renderDist(m, CONF, EST) {
             // Skip zero-budget items with no payments
             if (row.rb === 0 && row.cb === 0 && row.sb === 0 && !totalPagItem) return '';
 
+            // Para ítems referenciales con pagos reales: mostrar pagos reales como presupuesto
+            const hasRealPay = row.est && totalPagItem > 0;
+            const dispRow = hasRealPay
+              ? { ...row, rb: ip.r, cb: ip.c, sb: ip.s, rn: ip.r, cn: ip.c, sn: ip.s }
+              : row;
+
             const ncols = cols.length + 3;
             return `<tr class="item-row${est?' style-muted':''}" id="item-${i}"
                 onclick="toggleRow(${i})"
@@ -454,14 +473,14 @@ function renderDist(m, CONF, EST) {
                 ? `<em style="font-style:italic">${row.item}</em>`
                 : `<strong>${row.item}</strong>`
               }${est?' <span style="font-size:10px;opacity:0.6">(ref.)</span>':''}</td>
-              ${cols.map(c=>`<td class="num">${row[c.key] > 0 ? `$${fmt(row[c.key])}` : '<span style="color:var(--fg-faint)">—</span>'}</td>`).join('')}
+              ${cols.map(c=>`<td class="num">${dispRow[c.key] > 0 ? `$${fmt(dispRow[c.key])}` : '<span style="color:var(--fg-faint)">—</span>'}</td>`).join('')}
               <td class="num" style="font-weight:500">${(()=>{
-                const v = (vis.r?(m==='neto'?row.rn:row.rb):0)+
-                          (vis.c?(m==='neto'?row.cn:row.cb):0)+
-                          (vis.s?(m==='neto'?row.sn:row.sb):0);
+                const v = (vis.r?(m==='neto'?dispRow.rn:dispRow.rb):0)+
+                          (vis.c?(m==='neto'?dispRow.cn:dispRow.cb):0)+
+                          (vis.s?(m==='neto'?dispRow.sn:dispRow.sb):0);
                 return v > 0 ? `$${fmt(v)}` : `<span style="color:var(--fg-faint)">$${fmt(totalPagItem)}</span>`;
               })()}</td>
-              <td style="padding-right:8px">${pctBar(row.item, row.rb, row.cb, row.sb)}</td>
+              <td style="padding-right:8px">${pctBar(row.item, dispRow.rb, dispRow.cb, dispRow.sb)}</td>
             </tr>
             ${detailHtml(row, ncols)}`;
           }).join('')}
@@ -520,6 +539,13 @@ async function init() {
     renderTiles();
     renderTable();
   } catch(e) { /* continúa sin datos remotos */ }
+}
+
+async function refrescar() {
+  const btn = document.getElementById('btn-refresh');
+  if (btn) { btn.textContent = '⏳ Cargando…'; btn.disabled = true; }
+  await init();
+  if (btn) { btn.innerHTML = '🔄 Actualizar'; btn.disabled = false; }
 }
 
 init();
