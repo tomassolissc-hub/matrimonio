@@ -226,14 +226,16 @@ window.toggleMode = () => {
 };
 
 function renderTiles() {
-  const T = TOTALS;
+  // Usar ítems normalizados: referenciales con pagos reales muestran pagos reales
+  const itemsNorm = computeItemsNorm();
+  const T = computeTotals(itemsNorm);
   const P = PAGADO;
   const ptotal = P.r + P.c + P.s;
 
-  // Ítems sin presupuesto fijo (Ceremonia, Maquilladora): rb=cb=sb=0 pero
-  // sus pagos deben engrosar el bruto de los tiles igual que en el footer.
+  // Ítems sin presupuesto fijo (Ceremonia, Maquilladora) que aún no tienen pagos:
+  // rb=cb=sb=0 incluso después de normalizar → sus pagos deben engrosar el bruto.
   const zeroExtra = { r:0, c:0, s:0, t:0 };
-  ITEMS.forEach(x => {
+  itemsNorm.forEach(x => {
     if ((x.rb||0) + (x.cb||0) + (x.sb||0) === 0) {
       const ip = ITEM_PAGADO[x.item] || {r:0,c:0,s:0};
       zeroExtra.r += ip.r; zeroExtra.c += ip.c; zeroExtra.s += ip.s;
@@ -381,6 +383,17 @@ function esEst(x) {
   return (ip.r + ip.c + ip.s) === 0;
 }
 
+// Ítems normalizados: para est:true con pagos reales, sustituye montos referenciales
+function computeItemsNorm() {
+  return ITEMS.map(x => {
+    if (!x.est) return x;
+    const ip = ITEM_PAGADO[x.item] || { r:0, c:0, s:0 };
+    const total = ip.r + ip.c + ip.s;
+    if (total === 0) return x;
+    return { ...x, rb: ip.r, cb: ip.c, sb: ip.s, rn: ip.r, cn: ip.c, sn: ip.s };
+  });
+}
+
 function renderTable() {
   const m = mode;
   // Para ítems referenciales con pagos reales, sustituir montos por pagos reales
@@ -397,6 +410,13 @@ function renderTable() {
 }
 
 function renderDist(m, CONF, EST) {
+  // Total normalizado = CONF + EST (ambos ya calculados desde itemsNorm)
+  const NORM_TOTAL = {
+    rb: CONF.rb+EST.rb, rn: CONF.rn+EST.rn,
+    cb: CONF.cb+EST.cb, cn: CONF.cn+EST.cn,
+    sb: CONF.sb+EST.sb, sn: CONF.sn+EST.sn,
+    tb: CONF.tb+EST.tb, tn: CONF.tn+EST.tn,
+  };
   const cols = [];
   if (vis.r) cols.push({ key: m==='neto'?'rn':'rb', label:'Riedel', cls:'badge-r' });
   if (vis.c) cols.push({ key: m==='neto'?'cn':'cb', label:'Chico',  cls:'badge-c' });
@@ -489,7 +509,7 @@ function renderDist(m, CONF, EST) {
           ${[
             { label:'Confirmado', style:'font-weight:600;border-top:2px solid var(--border)', em:false, T:CONF, F:CF, tot:confDisplayTot },
             { label:'+ Estimado', style:'color:var(--fg-muted);font-size:13px', em:true,  T:EST,  F:EF, tot:estDisplayTot },
-            { label:'TOTAL',      style:'font-weight:700;border-top:1px solid var(--border)', em:false, T:TOTALS, F:TF, tot:grandDisplayTot },
+            { label:'TOTAL',      style:'font-weight:700;border-top:1px solid var(--border)', em:false, T:NORM_TOTAL, F:TF, tot:grandDisplayTot },
           ].map(({label,style,em,T,F,tot})=>{
             const w = v => em ? `<em>$${fmt(v)}</em>` : `$${fmt(v)}`;
             return `<tr style="${style}">
