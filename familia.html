@@ -70,8 +70,15 @@
 </nav>
 
 <main class="page">
-  <h1 class="page-title" id="page-title">Mi resumen</h1>
-  <p class="page-subtitle" style="margin-bottom:20px">Matrimonio Riedel Palma &amp; Solís Soto · 2026</p>
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
+    <div>
+      <h1 class="page-title" id="page-title" style="margin:0">Mi resumen</h1>
+      <p class="page-subtitle" style="margin:4px 0 20px">Matrimonio Riedel Palma &amp; Solís Soto · 2026</p>
+    </div>
+    <button id="btn-refresh" onclick="refrescar()" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border);color:var(--fg);cursor:pointer;font-size:13px;font-weight:500;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      🔄 Actualizar
+    </button>
+  </div>
 
   <!-- Selector de familia (solo visible sin parámetro en URL) -->
   <div class="selector-wrap" id="selector-wrap">
@@ -242,9 +249,11 @@ function render() {
 
   function itemLine(x) {
     const ipaid  = (itemPaid[x.item]||{})[k]||0;
-    // Para ítems sin precio fijo, el "presupuesto" mostrado es lo pagado hasta ahora
-    const share  = (x[bKey]||0) > 0 ? (x[bKey]||0) : ipaid;
-    const ipct   = share > 0 ? Math.min(100, Math.round(ipaid / share * 100)) : 0;
+    const ip     = itemPaid[x.item] || {};
+    const totalPagItem = (ip.r||0) + (ip.c||0) + (ip.s||0);
+    // Para ítems referenciales con pagos reales: el presupuesto pasa a ser el pago real de esta familia
+    const share  = (x.est && totalPagItem > 0) ? ipaid : ((x[bKey]||0) > 0 ? (x[bKey]||0) : ipaid);
+    const ipct   = ipaid > 0 ? 100 : 0;
     const color  = `var(--${k}-color)`;
     const shareLabel = (x[bKey]||0) > 0
       ? `$${fmt(share)}`
@@ -372,6 +381,13 @@ async function load() {
     root.innerHTML = `<p style="color:var(--fg-muted);font-size:13px">Error al cargar datos.</p>`;
   }
 }
+
+window.refrescar = async function() {
+  const btn = document.getElementById('btn-refresh');
+  if (btn) { btn.textContent = '⏳ Cargando…'; btn.disabled = true; }
+  await load();
+  if (btn) { btn.innerHTML = '🔄 Actualizar'; btn.disabled = false; }
+};
 
 // Render inicial con datos vacíos para que se vea algo rápido
 render();
