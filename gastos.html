@@ -406,10 +406,10 @@ function renderTable() {
   });
   const CONF = computeTotals(itemsNorm.filter(x => !esEst(x)));
   const EST  = computeTotals(itemsNorm.filter(x =>  esEst(x)));
-  renderDist(m, CONF, EST);
+  renderDist(m, CONF, EST, itemsNorm);
 }
 
-function renderDist(m, CONF, EST) {
+function renderDist(m, CONF, EST, itemsNorm) {
   // Total normalizado = CONF + EST (ambos ya calculados desde itemsNorm)
   const NORM_TOTAL = {
     rb: CONF.rb+EST.rb, rn: CONF.rn+EST.rn,
@@ -438,8 +438,8 @@ function renderDist(m, CONF, EST) {
     }, { pr:0, pc:0, ps:0, rb:0, cb:0, sb:0 });
   }
 
-  const confItems = ITEMS.filter(x => !esEst(x));
-  const estItems  = ITEMS.filter(x =>  esEst(x));
+  const confItems = itemsNorm.filter(x => !esEst(x));
+  const estItems  = itemsNorm.filter(x =>  esEst(x));
   const CF = footerPaid(confItems);
   const EF = footerPaid(estItems);
   const TF = { pr: CF.pr+EF.pr, pc: CF.pc+EF.pc, ps: CF.ps+EF.ps, rb: CF.rb+EF.rb, cb: CF.cb+EF.cb, sb: CF.sb+EF.sb };
