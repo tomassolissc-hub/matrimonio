@@ -541,12 +541,12 @@ async function init() {
   } catch(e) { /* continúa sin datos remotos */ }
 }
 
-async function refrescar() {
+window.refrescar = async function() {
   const btn = document.getElementById('btn-refresh');
   if (btn) { btn.textContent = '⏳ Cargando…'; btn.disabled = true; }
   await init();
   if (btn) { btn.innerHTML = '🔄 Actualizar'; btn.disabled = false; }
-}
+};
 
 init();
 </script>
