@@ -189,18 +189,23 @@ function computeItemPagos(pagos, items) {
   (pagos || []).forEach(p => {
     const k     = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
     const monto = Number(p.monto) || 0;
-    const concepto = String(p.concepto || '').toLowerCase();
 
-    // Match concepto against item names (first match wins)
+    // Prefer explicit item field; fall back to concepto startsWith for legacy entries
     let matched = false;
-    for (const nombre of Object.keys(result)) {
-      if (concepto.startsWith(nombre.toLowerCase()) || concepto.includes(nombre.toLowerCase())) {
-        result[nombre][k] += monto;
-        matched = true;
-        break;
+    if (p.item && result[p.item] !== undefined) {
+      result[p.item][k] += monto;
+      matched = true;
+    } else {
+      const concepto = String(p.concepto || '').toLowerCase();
+      for (const nombre of Object.keys(result)) {
+        if (concepto.startsWith(nombre.toLowerCase())) {
+          result[nombre][k] += monto;
+          matched = true;
+          break;
+        }
       }
     }
-    // If no item matched, put in Extras
+    // Si no matcheó nada, va a Extras
     if (!matched && result['Extras']) {
       result['Extras'][k] += monto;
     }
