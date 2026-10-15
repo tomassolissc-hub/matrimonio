@@ -66,7 +66,8 @@
   </div>
 
   <div class="tabs" id="tabs"></div>
-  <div id="subfilters" style="margin-bottom:12px"></div>
+  <div id="subfilters" style="margin-bottom:8px"></div>
+  <div id="tipo-filters" style="margin-bottom:12px"></div>
   <div class="search-wrap">
     <input class="search-input" id="search" type="search" placeholder="Buscar invitado…" autocomplete="off">
   </div>
@@ -132,6 +133,7 @@ highlightNav();
 let guests = null;
 let current = 'riedel';
 let subfilter = 'all';
+let tipoFilter = 'all';
 
 const SUBFILTERS = {
   riedel: ['Todos', 'Anto', 'Riedel Palma'],
@@ -176,6 +178,7 @@ async function load() {
     guests = await apiFetch('guests');
     renderTabs();
     renderSubfilters();
+    renderTipoFilters();
     renderGuests();
     renderChart();
   } catch(e) {
@@ -204,12 +207,47 @@ function renderSubfilters() {
   </div>`;
 }
 
+function renderTipoFilters() {
+  const tipoEl = document.getElementById('tipo-filters');
+  const all = guests[current] || [];
+  const counts = { all: all.length, Full: 0, Fiesta: 0, otro: 0 };
+  all.forEach(g => {
+    const t = (g.tipo || '').trim();
+    if (t === 'Full')        counts.Full++;
+    else if (t === 'Fiesta') counts.Fiesta++;
+    else                     counts.otro++;
+  });
+
+  const TIPOS = [
+    { key: 'all',    label: 'Todos' },
+    { key: 'Full',   label: 'Full' },
+    { key: 'Fiesta', label: 'Fiesta' },
+    { key: 'otro',   label: 'S/info' },
+  ];
+
+  tipoEl.innerHTML = `<div style="display:flex;gap:6px;flex-wrap:wrap">
+    ${TIPOS.map(t => `
+      <button class="tab-btn ${tipoFilter===t.key?'active':''}"
+              onclick="setTipo('${t.key}')"
+              style="padding:5px 10px;font-size:11px;opacity:${counts[t.key]===0?.4:1}">
+        ${t.label} <span style="opacity:.6">${counts[t.key]}</span>
+      </button>`).join('')}
+  </div>`;
+}
+
 function renderGuests() {
   const q   = searchEl.value.trim().toLowerCase();
   const all = guests[current] || [];
   let list  = subfilter === 'all' ? all
     : subfilter === 'Riedel Palma' ? all.filter(g => !g.g || g.g === 'Riedel Palma')
     : all.filter(g => g.g === subfilter);
+  if (tipoFilter !== 'all') {
+    if (tipoFilter === 'otro') {
+      list = list.filter(g => !g.tipo || (g.tipo.trim() !== 'Full' && g.tipo.trim() !== 'Fiesta'));
+    } else {
+      list = list.filter(g => (g.tipo || '').trim() === tipoFilter);
+    }
+  }
   if (q) list = list.filter(g => g.n.toLowerCase().includes(q));
 
   const count = all.length;
@@ -228,7 +266,7 @@ function renderGuests() {
     ${list.map(g => `
       <div class="guest-item" data-id="${g.id || ''}">
         <span class="guest-name">${g.n}</span>
-        ${g.tipo ? `<span class="guest-tipo">${g.tipo}</span>` : ''}
+        ${g.tipo ? `<span class="guest-tipo">${g.tipo === '(A)' ? 'Acompañante' : g.tipo}</span>` : ''}
         ${g.g    ? `<span class="guest-tag">${g.g}</span>` : ''}
         <button class="btn-delete-guest" title="Eliminar invitado"
                 onclick="deleteGuest('${(g.id||'').toString().replace(/'/g,"\\'")}', '${g.n.replace(/'/g,"\\'")}', this)">✕</button>
@@ -238,33 +276,112 @@ function renderGuests() {
 }
 
 window.setFamily = (k) => {
-  current = k; subfilter = 'all'; searchEl.value = '';
-  renderTabs(); renderSubfilters(); renderGuests();
+  current = k; subfilter = 'all'; tipoFilter = 'all'; searchEl.value = '';
+  renderTabs(); renderSubfilters(); renderTipoFilters(); renderGuests();
 };
 window.setSub = (s) => {
-  subfilter = s; renderSubfilters(); renderGuests();
+  subfilter = s; renderSubfilters(); renderTipoFilters(); renderGuests();
+};
+window.setTipo = (t) => {
+  tipoFilter = t; renderTipoFilters(); renderGuests();
 };
 searchEl.addEventListener('input', renderGuests);
 
+// ── Sistema undo para borrado ─────────────────────────────────
+let _undoTimer   = null;
+let _undoToastEl = null;
+
+function clearUndoToast() {
+  if (_undoToastEl) { _undoToastEl.remove(); _undoToastEl = null; }
+  if (_undoTimer)   { clearTimeout(_undoTimer); _undoTimer = null; }
+}
+
+function showUndoToast(name, onUndo, onCommit) {
+  clearUndoToast();
+
+  const el = document.createElement('div');
+  el.style.cssText = `
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:var(--fg);color:var(--bg);
+    padding:10px 16px;border-radius:10px;
+    font-size:13px;display:flex;align-items:center;gap:12px;
+    box-shadow:0 4px 20px rgba(0,0,0,.25);z-index:9999;
+    white-space:nowrap;animation:fadeIn .2s ease`;
+  el.innerHTML = `
+    <span>${name} eliminado/a</span>
+    <button style="background:none;border:none;color:var(--accent-fg,#b59a6a);
+      font-weight:700;font-size:13px;cursor:pointer;padding:0;line-height:1">
+      Deshacer
+    </button>
+    <span id="undo-countdown" style="opacity:.5;font-size:12px;min-width:16px;text-align:right">5</span>`;
+
+  document.body.appendChild(el);
+  _undoToastEl = el;
+
+  el.querySelector('button').addEventListener('click', () => {
+    clearUndoToast();
+    onUndo();
+  });
+
+  let secs = 5;
+  const countEl = el.querySelector('#undo-countdown');
+  const tick = setInterval(() => {
+    secs--;
+    if (countEl) countEl.textContent = secs;
+    if (secs <= 0) { clearInterval(tick); }
+  }, 1000);
+
+  _undoTimer = setTimeout(() => {
+    clearInterval(tick);
+    if (_undoToastEl === el) { el.remove(); _undoToastEl = null; _undoTimer = null; }
+    onCommit();
+  }, 5000);
+}
+
 window.deleteGuest = async (id, name, btn) => {
   if (!id) { toast('Este invitado no tiene ID — no se puede borrar desde aquí.', false); return; }
-  if (!confirm(`¿Eliminar a ${name} de la lista?`)) return;
-  btn.disabled = true;
-  btn.textContent = '…';
-  try {
-    await apiPost({ action: 'deleteGuest', id });
-    // Quitar del estado local
-    for (const k of ['riedel','chico','solis']) {
-      guests[k] = (guests[k] || []).filter(g => String(g.id) !== String(id));
+
+  // Guardar copia del invitado para poder revertir en memoria
+  let deletedEntry = null;
+  let deletedKey   = null;
+  for (const k of ['riedel','chico','solis']) {
+    const idx = (guests[k] || []).findIndex(g => String(g.id) === String(id));
+    if (idx !== -1) {
+      deletedEntry = guests[k][idx];
+      deletedKey   = k;
+      guests[k].splice(idx, 1);
+      break;
     }
-    toast(`${name} eliminado/a`);
-    renderTabs();
-    renderGuests();
-  } catch(e) {
-    btn.disabled = false;
-    btn.textContent = '✕';
-    toast(e.message, false);
   }
+
+  renderTabs();
+  renderGuests();
+
+  showUndoToast(
+    name,
+    // onUndo: devolver al estado local
+    () => {
+      if (deletedEntry && deletedKey) {
+        guests[deletedKey].push(deletedEntry);
+        guests[deletedKey].sort((a, b) => a.n.localeCompare(b.n, 'es'));
+      }
+      renderChart();
+      renderTabs();
+      renderGuests();
+      toast(`${name} restaurado/a ✓`);
+    },
+    // onCommit: recién ahora borrar en el servidor
+    async () => {
+      try {
+        await apiPost({ action: 'deleteGuest', id });
+      } catch(e) {
+        // Si falló el server, restaurar localmente
+        if (deletedEntry && deletedKey) guests[deletedKey].push(deletedEntry);
+        toast(`Error al eliminar: ${e.message}`, false);
+        renderChart(); renderTabs(); renderGuests();
+      }
+    }
+  );
 };
 
 // ── Modal agregar ────────────────────────────────────────────
