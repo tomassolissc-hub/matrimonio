@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Panel — Matrimonio 2026</title>
+<title>Invitados — Matrimonio 2026</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -23,582 +23,424 @@
   </div>
 </nav>
 
-<!-- Modal editar pago -->
-<div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center;padding:20px">
-  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;width:100%;max-width:400px;box-shadow:0 16px 48px rgba(0,0,0,.4)">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
-      <span style="font-weight:600;font-size:15px">Editar pago</span>
-      <button onclick="cerrarModal()" style="background:none;border:none;cursor:pointer;color:var(--fg-muted);font-size:20px;line-height:1">×</button>
+<main class="page">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:4px">
+    <div>
+      <h1 class="page-title" style="margin-bottom:2px">Lista de invitados</h1>
+      <p class="page-subtitle" id="subtitle" style="margin:0">Cargando…</p>
     </div>
-    <input type="hidden" id="edit-id">
-    <div style="margin-bottom:12px">
-      <label style="font-size:12px;font-weight:500;color:var(--fg-muted);display:block;margin-bottom:4px">Familia</label>
-      <select id="edit-familia" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:var(--input-bg,var(--card-bg));color:var(--fg);font-size:14px">
-        <option value="Riedel Palma">Riedel Palma</option>
-        <option value="Chico">Chico</option>
-        <option value="Solís Soto">Solís Soto</option>
-      </select>
+    <button class="btn btn-primary" onclick="openModal()" style="flex-shrink:0;margin-top:4px">+ Agregar invitado</button>
+  </div>
+
+  <!-- Gráfico Full vs Fiesta -->
+  <div id="tipo-chart" style="margin-top:16px;margin-bottom:16px;display:none">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="width:52px;font-size:12px;font-weight:600;color:var(--fg-muted)">Full</span>
+        <div style="flex:1;height:22px;background:var(--border);border-radius:6px;overflow:hidden;position:relative">
+          <div id="bar-full" style="height:100%;background:var(--accent-fg,#b59a6a);border-radius:6px;transition:width .5s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;box-sizing:border-box;min-width:32px">
+            <span id="lbl-full" style="font-size:11px;font-weight:700;color:#fff"></span>
+          </div>
+        </div>
+        <span id="n-full" style="width:36px;font-size:12px;font-weight:700;color:var(--fg);text-align:right"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="width:52px;font-size:12px;font-weight:600;color:var(--fg-muted)">Fiesta</span>
+        <div style="flex:1;height:22px;background:var(--border);border-radius:6px;overflow:hidden;position:relative">
+          <div id="bar-fiesta" style="height:100%;background:var(--s-color,#2e7d52);border-radius:6px;transition:width .5s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;box-sizing:border-box;min-width:32px">
+            <span id="lbl-fiesta" style="font-size:11px;font-weight:700;color:#fff"></span>
+          </div>
+        </div>
+        <span id="n-fiesta" style="width:36px;font-size:12px;font-weight:700;color:var(--fg);text-align:right"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="width:52px;font-size:12px;font-weight:600;color:var(--fg-muted)">S/info</span>
+        <div style="flex:1;height:22px;background:var(--border);border-radius:6px;overflow:hidden;position:relative">
+          <div id="bar-otro" style="height:100%;background:var(--fg-faint,#aaa);border-radius:6px;transition:width .5s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;box-sizing:border-box;min-width:32px">
+            <span id="lbl-otro" style="font-size:11px;font-weight:700;color:#fff"></span>
+          </div>
+        </div>
+        <span id="n-otro" style="width:36px;font-size:12px;font-weight:700;color:var(--fg);text-align:right"></span>
+      </div>
     </div>
-    <div style="margin-bottom:12px">
-      <label style="font-size:12px;font-weight:500;color:var(--fg-muted);display:block;margin-bottom:4px">Concepto</label>
-      <input id="edit-concepto" type="text" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:var(--input-bg,var(--card-bg));color:var(--fg);font-size:14px;box-sizing:border-box">
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+  <div id="subfilters" style="margin-bottom:8px"></div>
+  <div id="tipo-filters" style="margin-bottom:12px"></div>
+  <div class="search-wrap">
+    <input class="search-input" id="search" type="search" placeholder="Buscar invitado…" autocomplete="off">
+  </div>
+  <div id="root"><div class="loading"><div class="spinner"></div> Cargando…</div></div>
+</main>
+
+<!-- Modal agregar invitado -->
+<div id="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center;padding:16px">
+  <div style="background:var(--bg);border-radius:16px;padding:24px;width:100%;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <h2 style="margin:0;font-size:18px">Agregar invitado</h2>
+      <button onclick="closeModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--fg-muted);line-height:1">×</button>
     </div>
-    <div style="margin-bottom:18px">
-      <label style="font-size:12px;font-weight:500;color:var(--fg-muted);display:block;margin-bottom:4px">Monto ($)</label>
-      <input id="edit-monto" type="number" min="0" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:var(--input-bg,var(--card-bg));color:var(--fg);font-size:14px;box-sizing:border-box">
-    </div>
-    <div style="display:flex;gap:10px">
-      <button onclick="cerrarModal()" style="flex:1;padding:9px;border:1px solid var(--border);border-radius:7px;background:none;color:var(--fg);cursor:pointer;font-size:14px">Cancelar</button>
-      <button onclick="guardarEdicion()" style="flex:1;padding:9px;border:none;border-radius:7px;background:var(--accent);color:#fff;cursor:pointer;font-size:14px;font-weight:600">Guardar</button>
-    </div>
+    <form id="add-form" onsubmit="submitGuest(event)" autocomplete="off">
+      <div style="display:flex;gap:10px;margin-bottom:12px">
+        <div style="flex:1">
+          <label style="font-size:12px;color:var(--fg-muted);display:block;margin-bottom:4px">Nombre *</label>
+          <input id="f-nombre" type="text" required placeholder="Ej: María" autocomplete="off"
+            style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-size:14px">
+        </div>
+        <div style="flex:1">
+          <label style="font-size:12px;color:var(--fg-muted);display:block;margin-bottom:4px">Apellido</label>
+          <input id="f-apellido" type="text" placeholder="Ej: González" autocomplete="off"
+            style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-size:14px">
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:12px;color:var(--fg-muted);display:block;margin-bottom:4px">Invitación *</label>
+        <select id="f-invitacion" required
+          style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-size:14px">
+          <option value="">Seleccionar…</option>
+          <option value="Riedel Palma">Riedel Palma</option>
+          <option value="Anto">Anto (Riedel Palma)</option>
+          <option value="Chico">Chico</option>
+          <option value="Solís">Solís (Solís Soto)</option>
+          <option value="Soto">Soto (Solís Soto)</option>
+        </select>
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="font-size:12px;color:var(--fg-muted);display:block;margin-bottom:4px">Tipo</label>
+        <select id="f-tipo"
+          style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-size:14px">
+          <option value="">Sin especificar</option>
+          <option value="Adulto">Adulto</option>
+          <option value="Niño">Niño</option>
+          <option value="Bebé">Bebé</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button type="button" onclick="closeModal()" class="btn" style="flex:1">Cancelar</button>
+        <button type="submit" id="submit-btn" class="btn btn-primary" style="flex:1">Agregar</button>
+      </div>
+    </form>
   </div>
 </div>
 
-<main class="page">
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
-    <div>
-      <h1 class="page-title" style="margin:0">Panel general</h1>
-      <p class="page-subtitle" style="margin:4px 0 0">Matrimonio Riedel Palma &amp; Solís Soto · 2026</p>
-    </div>
-    <button id="btn-refresh" onclick="refrescar()" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border);color:var(--fg);cursor:pointer;font-size:13px;font-weight:500;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-      🔄 Actualizar
-    </button>
-  </div>
-  <div id="root"></div>
-</main>
-
 <script type="module">
-import { apiFetch, apiPost, fileToBase64, fmt, initTheme, highlightNav, toast } from './api.js';
+import { apiFetch, apiPost, initTheme, highlightNav, showError, toast } from './api.js';
 
 initTheme();
 highlightNav();
 
-window.eliminarPago = async function(id) {
-  if (!confirm('¿Eliminar este pago?')) return;
+let guests = null;
+let current = 'riedel';
+let subfilter = 'all';
+let tipoFilter = 'all';
+
+const SUBFILTERS = {
+  riedel: ['Todos', 'Anto', 'Riedel Palma'],
+  chico:  null,
+  solis:  ['Todos', 'Solís', 'Soto'],
+};
+const LABELS = { riedel: 'Riedel Palma', chico: 'Chico', solis: 'Solís Soto' };
+
+const root     = document.getElementById('root');
+const tabsEl   = document.getElementById('tabs');
+const subEl    = document.getElementById('subfilters');
+const searchEl = document.getElementById('search');
+
+function renderChart() {
+  const all = ['riedel','chico','solis'].flatMap(k => guests[k] || []);
+  let full = 0, fiesta = 0, otro = 0;
+  all.forEach(g => {
+    const t = (g.tipo || '').trim();
+    if (t === 'Full')   full++;
+    else if (t === 'Fiesta') fiesta++;
+    else otro++;
+  });
+  const total = all.length || 1;
+  const chartEl = document.getElementById('tipo-chart');
+  chartEl.style.display = '';
+
+  document.getElementById('bar-full').style.width   = Math.max(4, Math.round(full   / total * 100)) + '%';
+  document.getElementById('bar-fiesta').style.width = Math.max(4, Math.round(fiesta / total * 100)) + '%';
+  document.getElementById('bar-otro').style.width   = Math.max(4, Math.round(otro   / total * 100)) + '%';
+
+  document.getElementById('lbl-full').textContent   = Math.round(full   / total * 100) + '%';
+  document.getElementById('lbl-fiesta').textContent = Math.round(fiesta / total * 100) + '%';
+  document.getElementById('lbl-otro').textContent   = Math.round(otro   / total * 100) + '%';
+
+  document.getElementById('n-full').textContent   = full;
+  document.getElementById('n-fiesta').textContent = fiesta;
+  document.getElementById('n-otro').textContent   = otro;
+}
+
+async function load() {
   try {
-    const res = await apiPost({ action: 'deletePago', id });
-    if (res.ok) {
-      toast('Pago eliminado');
-      try { localStorage.removeItem(PAGOS_CACHE_KEY); } catch(e) {}
-      render();
-    } else toast(res.error || 'Error al eliminar', false);
-  } catch(e) { toast(e.message || 'Error', false); }
-};
-
-window.editarPago = function(id, familia, concepto, monto) {
-  document.getElementById('edit-id').value       = id;
-  document.getElementById('edit-familia').value  = familia;
-  document.getElementById('edit-concepto').value = concepto;
-  document.getElementById('edit-monto').value    = monto;
-  document.getElementById('edit-modal').style.display = 'flex';
-};
-window.cerrarModal = function() {
-  document.getElementById('edit-modal').style.display = 'none';
-};
-window.guardarEdicion = async function() {
-  const id      = document.getElementById('edit-id').value;
-  const familia = document.getElementById('edit-familia').value;
-  const concepto= document.getElementById('edit-concepto').value.trim();
-  const monto   = parseFloat(document.getElementById('edit-monto').value);
-  if (!familia || !concepto || !monto) { toast('Completa todos los campos', false); return; }
-  try {
-    const res = await apiPost({ action: 'editPago', id, data: { familia, concepto, monto } });
-    if (res.ok) {
-      toast('Pago actualizado ✓');
-      cerrarModal();
-      try { localStorage.removeItem(PAGOS_CACHE_KEY); } catch(e) {}
-      render();
-    } else toast(res.error || 'Error', false);
-  } catch(e) { toast(e.message || 'Error', false); }
-};
-
-// ── Totales fijos (sin Banquetera — ésta viene de la API) ─────
-// Suma de: Centro de Eventos, DJ, Fotógrafo, Videógrafo,
-// Maquilladora, Comida extra, Pista de Baile, Ceremonia,
-// Saxofonista, Flores, Extras  (todos × 1.19 IVA normal)
-const FIXED = {
-  r: { n: 11992423, b: 14270983 },
-  c: { n:  5996210, b:  7135492 },
-  s: { n:  5996210, b:  7135492 },
-};
-
-// Ítems sin precio fijo (Ceremonia, Maquilladora) — sus pagos se suman al bruto total
-const ZERO_BUDGET_NAMES = ['ceremonia', 'maquilladora'];
-function computeZeroBudgetPaid(pagos) {
-  const z = { r:0, c:0, s:0 };
-  (pagos||[]).forEach(p => {
-    const concepto = String(p.concepto||'').toLowerCase();
-    if (ZERO_BUDGET_NAMES.some(n => concepto.startsWith(n) || concepto.includes(n))) {
-      const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
-      z[k] += Number(p.monto)||0;
-    }
-  });
-  return z;
-}
-
-// Ítems referenciales (est:true) con presupuesto fijo que pueden tener pagos reales
-const EST_ITEMS_REF = [
-  { item: 'Flores', rb: 952000,  cb: 476000,  sb: 476000  },
-  { item: 'Extras', rb: 5108075, cb: 2554038, sb: 2554038 },
-];
-const ALL_ITEM_NAMES = [
-  'Centro de Eventos','DJ',
-  'Fotógrafo','Videógrafo','Maquilladora',
-  'Comida extra','Pista de Baile','Ceremonia',
-  'Saxofonista','Flores','Extras',
-];
-function computeItemPagadoPanel(pagos) {
-  const result = {};
-  ALL_ITEM_NAMES.forEach(n => { result[n] = { r:0, c:0, s:0 }; });
-  (pagos||[]).forEach(p => {
-    const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
-    const monto = Number(p.monto)||0;
-    // Prefer explicit item field; fall back to concepto startsWith for legacy entries
-    if (p.item && result[p.item] !== undefined) {
-      result[p.item][k] += monto;
-    } else {
-      const concepto = String(p.concepto||'').toLowerCase();
-      for (const nombre of ALL_ITEM_NAMES) {
-        if (concepto.startsWith(nombre.toLowerCase())) {
-          result[nombre][k] += monto;
-          break;
-        }
-      }
-    }
-  });
-  return result;
-}
-// Ajusta BRUTO: reemplaza montos referenciales por pagos reales cuando existen
-function applyEstAdjustments(pagos) {
-  const ip = computeItemPagadoPanel(pagos);
-  EST_ITEMS_REF.forEach(x => {
-    const paid = ip[x.item] || { r:0, c:0, s:0 };
-    if ((paid.r + paid.c + paid.s) === 0) return;
-    BRUTO.r += paid.r - x.rb;
-    BRUTO.c += paid.c - x.cb;
-    BRUTO.s += paid.s - x.sb;
-  });
-  BRUTO_TOTAL = BRUTO.r + BRUTO.c + BRUTO.s;
-}
-
-// ── Liquidación dos bloques ───────────────────────────────────
-// Bloque A = Riedel (50% del total)
-// Bloque B = Chico + Solís Soto (50% del total, 50/50 interno)
-// Banquetera: split por invitados (sr% Riedel, resto para bloque B)
-//
-// Nivel 1: Riedel vs bloque B combinado
-// Nivel 2: interno Chico vs Solís (50/50 de lo que corresponde al bloque B)
-
-function computeLiquidacion(pagos, banq) {
-  const paid = { r:0, c:0, s:0 };
-  const banqPaid = { r:0, c:0, s:0 };
-
-  (pagos||[]).forEach(p => {
-    const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
-    const m = Number(p.monto)||0;
-    const c = String(p.concepto||'').toLowerCase();
-    if (c.includes('banquetera') || c.includes('catering') || c.includes('comida')) {
-      banqPaid[k] += m;
-    } else {
-      paid[k] += m;
-    }
-  });
-
-  const restoTotal = paid.r + paid.c + paid.s;
-  const banqTotal  = banqPaid.r + banqPaid.c + banqPaid.s;
-  const grandTotal = restoTotal + banqTotal;
-
-  // Split banquetera para Riedel (resto queda para bloque B)
-  let sr = 0.50;
-  if (banq && banq.totalInvitados > 0) sr = (banq.invitadosR||0) / banq.totalInvitados;
-
-  // ─ Nivel 1: Riedel vs bloque B ─
-  const riedel_paid  = paid.r + banqPaid.r;
-  const riedel_debe  = restoTotal * 0.50 + banqTotal * sr;
-  const riedel_net   = riedel_paid - riedel_debe; // + = acreedor, − = deudor
-
-  // ─ Nivel 2: interno Chico / Solís ─
-  // Cada uno debe pagar 50% de la obligación total del bloque B
-  const cs_debe_total = restoTotal * 0.50 + banqTotal * (1 - sr);
-  const each_cs_debe  = cs_debe_total / 2;
-  const c_paid = paid.c + banqPaid.c;
-  const s_paid = paid.s + banqPaid.s;
-  const c_net  = c_paid - each_cs_debe; // + = acreedor, − = deudor (dentro del bloque)
-  const s_net  = s_paid - each_cs_debe;
-
-  return { riedel_net, c_net, s_net, riedel_paid, c_paid, s_paid, riedel_debe, each_cs_debe, grandTotal, cs_debe_total };
-}
-
-function renderLiquidacion(pagos) {
-  const banq = _lastBanq;
-  const { riedel_net, c_net, s_net, riedel_paid, c_paid, s_paid, riedel_debe, each_cs_debe, grandTotal, cs_debe_total } = computeLiquidacion(pagos, banq);
-
-  const NAMES = { r:'Riedel Palma', c:'Chico', s:'Solís Soto' };
-  const badge = k => `<span class="badge badge-${k}">${NAMES[k]}</span>`;
-  const badgeCS = `<span class="badge badge-c" style="margin-right:2px">Chico</span><span class="badge badge-s">Solís Soto</span>`;
-
-  if (grandTotal < 100) {
-    return `<p style="font-size:13px;color:var(--fg-muted);padding:4px 0">Aún no hay pagos registrados.</p>`;
+    guests = await apiFetch('guests');
+    renderTabs();
+    renderSubfilters();
+    renderTipoFilters();
+    renderGuests();
+    renderChart();
+  } catch(e) {
+    showError(root, e.message);
   }
-
-  // Nivel 1: transferencia entre bloques
-  const bloqueRow = (() => {
-    const cs_paid = c_paid + s_paid;
-    const rColor = riedel_net >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#ef4444)';
-    const csColor = riedel_net <= 0 ? 'var(--green,#22c55e)' : 'var(--red,#ef4444)';
-    const inter = Math.abs(Math.round(riedel_net));
-    const interRow = inter > 100 ? `
-      <div style="display:flex;align-items:center;gap:10px;padding:14px 0;border-top:1px solid var(--border);margin-top:4px">
-        ${riedel_net < 0 ? badge('r') : badgeCS}
-        <span style="color:var(--fg-faint);font-size:20px;line-height:1">→</span>
-        ${riedel_net < 0 ? badgeCS : badge('r')}
-        <span style="flex:1"></span>
-        <span style="font-size:17px;font-weight:700;font-variant-numeric:tabular-nums">$${fmt(inter)}</span>
-      </div>` : `<div style="padding:10px 0;color:var(--fg-muted);font-size:13px">✅ Ambos bloques están al día entre sí.</div>`;
-    return `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);font-size:13px">
-        ${badge('r')}
-        <span style="color:var(--fg-muted)">pagó $${fmt(riedel_paid)} · debía $${fmt(Math.round(riedel_debe))}</span>
-        <span style="font-weight:600;color:${rColor}">${riedel_net >= 0 ? '✔' : '→ ' + fmt(Math.abs(Math.round(riedel_net)))}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);font-size:13px">
-        ${badgeCS}
-        <span style="color:var(--fg-muted)">pagó $${fmt(c_paid + s_paid)} · debían $${fmt(Math.round(cs_debe_total))}</span>
-        <span style="font-weight:600;color:${csColor}">${riedel_net <= 0 ? '✔' : '→ ' + fmt(Math.abs(Math.round(riedel_net)))}</span>
-      </div>
-      ${interRow}`;
-  })();
-
-  // Nivel 2: interno Chico / Solís
-  const internoRow = (() => {
-    const inter = Math.abs(Math.round(c_net));
-    if (inter < 100) return `<div style="padding:10px 0;color:var(--fg-muted);font-size:13px">✅ Chico y Solís están al día entre sí.</div>`;
-    const from = c_net < 0 ? 'c' : 's';
-    const to   = c_net < 0 ? 's' : 'c';
-    return `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px">
-        ${badge('c')}
-        <span style="color:var(--fg-muted)">pagó $${fmt(c_paid)} · debía $${fmt(Math.round(each_cs_debe))}</span>
-        <span style="font-weight:600;color:${c_net < 0 ? 'var(--red,#ef4444)' : 'var(--green,#22c55e)'}">
-          ${c_net >= 0 ? '✔' : '→ ' + fmt(Math.abs(Math.round(c_net)))}
-        </span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px">
-        ${badge('s')}
-        <span style="color:var(--fg-muted)">pagó $${fmt(s_paid)} · debía $${fmt(Math.round(each_cs_debe))}</span>
-        <span style="font-weight:600;color:${s_net < 0 ? 'var(--red,#ef4444)' : 'var(--green,#22c55e)'}">
-          ${s_net >= 0 ? '✔' : '→ ' + fmt(Math.abs(Math.round(s_net)))}
-        </span>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;padding:14px 0;border-top:1px solid var(--border);margin-top:4px">
-        ${badge(from)}
-        <span style="color:var(--fg-faint);font-size:20px;line-height:1">→</span>
-        ${badge(to)}
-        <span style="flex:1"></span>
-        <span style="font-size:17px;font-weight:700;font-variant-numeric:tabular-nums">$${fmt(inter)}</span>
-      </div>`;
-  })();
-
-  return `
-    <div style="font-size:11px;font-weight:600;color:var(--fg-muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Total pagado entre todos</div>
-    <div style="font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;margin-bottom:20px">$${fmt(grandTotal)}</div>
-
-    <div style="font-size:11px;font-weight:600;color:var(--fg-muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Entre bloques (Riedel 50% · Chico+Solís 50%)</div>
-    ${bloqueRow}
-
-    <div style="font-size:11px;font-weight:600;color:var(--fg-muted);letter-spacing:.06em;text-transform:uppercase;margin:22px 0 6px">Interno: Chico / Solís Soto</div>
-    ${internoRow}
-
-    <p style="font-size:11px;color:var(--fg-faint);margin-top:14px">Banquetera por número de invitados · todo lo demás 50/50 entre bloques · Chico y Solís dividen su mitad al 50/50.</p>
-  `;
 }
 
-const root = document.getElementById('root');
-let BRUTO = { r:0, c:0, s:0 };
-let NETO  = { r:0, c:0, s:0 };
-let BRUTO_TOTAL = 0, NETO_TOTAL = 0;
-let _lastBanq = null; // para liquidación
+function renderTabs() {
+  tabsEl.innerHTML = ['riedel','chico','solis'].map(k => `
+    <button class="tab-btn ${k === current ? 'active' : ''}" onclick="setFamily('${k}')">
+      ${LABELS[k]} <span style="font-size:11px;opacity:.6">(${(guests[k]||[]).length})</span>
+    </button>
+  `).join('');
+}
 
-function familiaCard(k, label, bruto, neto, pagado, pend) {
-  const pct = bruto > 0 ? Math.min(100, Math.round(pagado / bruto * 100)) : 0;
-  return `<div class="stat-tile ${k}">
-    <div class="label">${label}</div>
-    <div class="value">$${fmt(bruto)}</div>
-    <div class="sub" style="display:flex;flex-direction:column;gap:1px">
-      <span>neto $${fmt(neto)}</span>
-      <span>pagado $${fmt(pagado)} · pendiente $${fmt(pend)}</span>
-    </div>
-    <div class="progress-wrap"><div class="progress-track">
-      <div class="progress-fill" style="width:${pct}%;background:var(--${k}-color)"></div>
-    </div></div>
+function renderSubfilters() {
+  const sf = SUBFILTERS[current];
+  if (!sf) { subEl.innerHTML = ''; return; }
+  subEl.innerHTML = `<div class="tabs" style="border:none;margin:0;gap:6px">
+    ${sf.map(s => `
+      <button class="tab-btn ${(s==='Todos'?'all':s)===subfilter?'active':''}"
+              onclick="setSub('${s==='Todos'?'all':s}')"
+              style="padding:6px 12px;font-size:12px">
+        ${s}
+      </button>`).join('')}
   </div>`;
 }
 
-function renderPagos(pagos) {
-  if (!pagos || !pagos.length) {
-    return '<p style="color:var(--fg-muted);font-size:13px;padding:8px 0">Aún no hay pagos. <a href="pagos.html" style="color:var(--accent-fg)">Registrar uno →</a></p>';
-  }
-  const todos = [...pagos].reverse();
-  return `<div class="table-wrap"><table>
-    <thead><tr><th>Fecha</th><th>Familia</th><th>Concepto</th><th class="num">Monto</th><th>Comprobante</th><th></th></tr></thead>
-    <tbody>${todos.map(p => {
-      const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
-      const urls = p.comprobante
-        ? p.comprobante.split(',').map(u => u.trim()).filter(u => u.startsWith('http'))
-        : [];
-      const verLinks = urls.map((u, i) =>
-        `<a href="${u}" target="_blank" style="color:var(--accent-fg);font-size:12px">
-          ${urls.length > 1 ? `Ver ${i+1}` : 'Ver'} →
-        </a>`).join('');
-      const comp = `
-        <div style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap">
-          ${verLinks}
-          <label style="cursor:pointer;color:var(--accent-fg);font-size:12px;display:inline-flex;align-items:center;gap:3px">
-            📎 ${urls.length ? 'Otro' : 'Adjuntar'}
-            <input type="file" accept="image/*,application/pdf" hidden
-              onchange="subirComp('${p.id}', this)">
-          </label>
-        </div>`;
-      return `<tr>
-        <td>${p.fecha}</td>
-        <td><span class="badge badge-${k}">${p.familia}</span></td>
-        <td>${p.concepto}</td>
-        <td class="num">$${fmt(p.monto)}</td>
-        <td id="comp-cell-${p.id}">${comp}</td>
-        <td style="white-space:nowrap">
-          ${!p.id.startsWith('G') ? `<button class="btn-edit-pago"
-            data-id="${p.id}"
-            data-familia="${p.familia}"
-            data-concepto="${(p.concepto||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"
-            data-monto="${p.monto}"
-            style="background:none;border:none;cursor:pointer;color:var(--fg-muted);font-size:14px;padding:2px 5px;line-height:1" title="Editar">✏️</button>` : ''}
-          <button onclick="eliminarPago('${p.id}')" style="background:none;border:none;cursor:pointer;color:var(--fg-faint);font-size:16px;padding:2px 5px;line-height:1" title="Eliminar">×</button>
-        </td>
-      </tr>`;
-    }).join('')}</tbody>
-  </table></div>
-  <p style="text-align:right;margin-top:10px"><a href="pagos.html" style="color:var(--accent-fg);font-size:13px">Registrar pago →</a></p>`;
-}
-
-window.subirComp = async function(pagoId, input) {
-  const file = input.files[0];
-  if (!file) return;
-  const cell = document.getElementById(`comp-cell-${pagoId}`);
-  // Guardar URLs existentes antes de mostrar "Subiendo…"
-  const prevUrls = cell
-    ? Array.from(cell.querySelectorAll('a[href]')).map(a => a.href).filter(u => u.startsWith('http'))
-    : [];
-  if (cell) cell.innerHTML = '<span style="font-size:12px;color:var(--fg-muted)">Subiendo…</span>';
-  try {
-    const b64 = await fileToBase64(file);
-    const res = await apiPost({
-      action:   'uploadComprobante',
-      pagoId,
-      fileData: b64,
-      mimeType: file.type,
-      fileName: file.name,
-    });
-    if (res.ok && res.url) {
-      const allUrls = res.allUrls
-        ? res.allUrls.split(',').map(u => u.trim()).filter(u => u.startsWith('http'))
-        : [...prevUrls, res.url].filter((u, i, arr) => u.startsWith('http') && arr.indexOf(u) === i);
-      const verLinks = allUrls.map((u, i) =>
-        `<a href="${u}" target="_blank" style="color:var(--accent-fg);font-size:12px">
-          ${allUrls.length > 1 ? `Ver ${i+1}` : 'Ver'} →
-        </a>`).join('');
-      if (cell) cell.innerHTML = `
-        <div style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap">
-          ${verLinks}
-          <label style="cursor:pointer;color:var(--accent-fg);font-size:12px;display:inline-flex;align-items:center;gap:3px">
-            📎 Otro
-            <input type="file" accept="image/*,application/pdf" hidden
-              onchange="subirComp('${pagoId}', this)">
-          </label>
-        </div>`;
-      try { localStorage.removeItem(PAGOS_CACHE_KEY); } catch(e) {}
-      toast('Comprobante subido ✓');
-    } else {
-      if (cell) cell.innerHTML = '<span style="color:#c0392b;font-size:12px">Error</span>';
-      toast('Error al subir', false);
-    }
-  } catch(err) {
-    if (cell) cell.innerHTML = '<span style="color:#c0392b;font-size:12px">Error</span>';
-    toast(err.message || 'Error al subir', false);
-  }
-};
-
-function renderPanel(pagos) {
-  const pagado = { r: 0, c: 0, s: 0 };
-  (pagos || []).forEach(p => {
-    const k = p.familia === 'Riedel Palma' ? 'r' : p.familia === 'Chico' ? 'c' : 's';
-    pagado[k] += Number(p.monto) || 0;
+function renderTipoFilters() {
+  const tipoEl = document.getElementById('tipo-filters');
+  const all = guests[current] || [];
+  const counts = { all: all.length, Full: 0, Fiesta: 0, otro: 0 };
+  all.forEach(g => {
+    const t = (g.tipo || '').trim();
+    if (t === 'Full')        counts.Full++;
+    else if (t === 'Fiesta') counts.Fiesta++;
+    else                     counts.otro++;
   });
-  const pagadoTotal = pagado.r + pagado.c + pagado.s;
 
-  // Ítems sin precio fijo (ej. Ceremonia) — sus pagos engrosan el total bruto
-  const zp = computeZeroBudgetPaid(pagos);
-  const bruto = { r: BRUTO.r + zp.r, c: BRUTO.c + zp.c, s: BRUTO.s + zp.s };
-  const brutoTotal = bruto.r + bruto.c + bruto.s;
+  const TIPOS = [
+    { key: 'all',    label: 'Todos' },
+    { key: 'Full',   label: 'Full' },
+    { key: 'Fiesta', label: 'Fiesta' },
+    { key: 'otro',   label: 'S/info' },
+  ];
 
-  const pend = {
-    r: Math.max(0, bruto.r - pagado.r),
-    c: Math.max(0, bruto.c - pagado.c),
-    s: Math.max(0, bruto.s - pagado.s),
-  };
-  const pendTotal = pend.r + pend.c + pend.s;
-  const pct = brutoTotal > 0 ? Math.min(100, Math.round(pagadoTotal / brutoTotal * 100)) : 0;
-
-  root.innerHTML = `
-    <div class="section-label">Totales generales</div>
-    <div class="stat-grid" style="margin-bottom:28px">
-      <div class="stat-tile t">
-        <div class="label">Total bruto</div>
-        <div class="value">$${fmt(brutoTotal)}</div>
-        <div class="sub">neto $${fmt(NETO_TOTAL)}</div>
-      </div>
-      <div class="stat-tile">
-        <div class="label">Pagado</div>
-        <div class="value">$${fmt(pagadoTotal)}</div>
-        <div class="sub">${pct}% del total bruto</div>
-        <div class="progress-wrap"><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></div>
-      </div>
-      <div class="stat-tile">
-        <div class="label">Por pagar</div>
-        <div class="value">$${fmt(pendTotal)}</div>
-        <div class="sub">entre las 3 familias</div>
-      </div>
-    </div>
-
-    <div class="section-label">Por familia</div>
-    <div class="stat-grid" style="margin-bottom:28px">
-      ${familiaCard('r','Riedel Palma',bruto.r,NETO.r,pagado.r,pend.r)}
-      ${familiaCard('c','Chico',bruto.c,NETO.c,pagado.c,pend.c)}
-      ${familiaCard('s','Solís Soto',bruto.s,NETO.s,pagado.s,pend.s)}
-    </div>
-
-    <div class="section-label">Distribución gastos generales</div>
-    <div class="card" style="margin-bottom:28px">
-      <p style="font-size:13px;color:var(--fg-muted);margin:0 0 16px">
-        Para ítems de uso común (DJ, Fotógrafo, Videógrafo, Flores, Pista de Baile, Saxofonista, Comida extra, Extras). La Banquetera se divide según los invitados de cada familia.
-      </p>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <div style="display:flex;align-items:center;gap:12px">
-          <span style="width:110px;font-size:13px;font-weight:500;color:var(--r-color)">Riedel Palma</span>
-          <div style="flex:1;background:var(--border);border-radius:99px;overflow:hidden;height:20px">
-            <div style="width:50%;background:var(--r-color);height:100%;border-radius:99px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px">
-              <span style="font-size:11px;font-weight:700;color:#fff">50%</span>
-            </div>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:12px">
-          <span style="width:110px;font-size:13px;font-weight:500;color:var(--c-color)">Chico</span>
-          <div style="flex:1;background:var(--border);border-radius:99px;overflow:hidden;height:20px">
-            <div style="width:25%;background:var(--c-color);height:100%;border-radius:99px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px">
-              <span style="font-size:11px;font-weight:700;color:#fff">25%</span>
-            </div>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:12px">
-          <span style="width:110px;font-size:13px;font-weight:500;color:var(--s-color)">Solís Soto</span>
-          <div style="flex:1;background:var(--border);border-radius:99px;overflow:hidden;height:20px">
-            <div style="width:25%;background:var(--s-color);height:100%;border-radius:99px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px">
-              <span style="font-size:11px;font-weight:700;color:#fff">25%</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <p style="font-size:12px;color:var(--fg-faint);margin:14px 0 0">
-        🍽️ <strong>Banquetera:</strong> distribución variable según invitados por familia · <a href="gastos.html" style="color:var(--accent-fg)">Ver detalle →</a>
-      </p>
-    </div>
-
-    <div class="section-label">Pagos registrados</div>
-    <div class="card" id="pagos-card">
-      ${renderPagos(pagos)}
-    </div>
-
-  `;
+  tipoEl.innerHTML = `<div style="display:flex;gap:6px;flex-wrap:wrap">
+    ${TIPOS.map(t => `
+      <button class="tab-btn ${tipoFilter===t.key?'active':''}"
+              onclick="setTipo('${t.key}')"
+              style="padding:5px 10px;font-size:11px;opacity:${counts[t.key]===0?.4:1}">
+        ${t.label} <span style="opacity:.6">${counts[t.key]}</span>
+      </button>`).join('')}
+  </div>`;
 }
 
-const PAGOS_CACHE_KEY = 'panel_pagos_v1';
-const BANQ_CACHE_KEY  = 'panel_banq_v1';
-
-function getCached(key) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    const { ts, data } = JSON.parse(raw);
-    if (Date.now() - ts < 10 * 60 * 1000) return data;
-  } catch(e) {}
-  return null;
-}
-function setCached(key, data) {
-  try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })); } catch(e) {}
-}
-
-function applyBanq(banq) {
-  if (!banq || banq.error) return;
-  _lastBanq = banq;
-  BRUTO = { r: FIXED.r.b + (banq.rb||0), c: FIXED.c.b + (banq.cb||0), s: FIXED.s.b + (banq.sb||0) };
-  NETO  = { r: FIXED.r.n + (banq.rn||0), c: FIXED.c.n + (banq.cn||0), s: FIXED.s.n + (banq.sn||0) };
-  BRUTO_TOTAL = BRUTO.r + BRUTO.c + BRUTO.s;
-  NETO_TOTAL  = NETO.r  + NETO.c  + NETO.s;
-}
-
-async function render() {
-  const cachedPagos = getCached(PAGOS_CACHE_KEY);
-  const cachedBanq  = getCached(BANQ_CACHE_KEY);
-
-  // Render inmediato con lo que hay en caché
-  BRUTO = { r: FIXED.r.b, c: FIXED.c.b, s: FIXED.s.b };
-  NETO  = { r: FIXED.r.n, c: FIXED.c.n, s: FIXED.s.n };
-  BRUTO_TOTAL = BRUTO.r + BRUTO.c + BRUTO.s;
-  NETO_TOTAL  = NETO.r  + NETO.c  + NETO.s;
-  applyBanq(cachedBanq);
-  applyEstAdjustments(cachedPagos || []);  // reemplaza referenciales por pagos reales
-  renderPanel(cachedPagos || []);
-
-  // Actualizar desde la API en segundo plano
-  try {
-    const [banq, pagos] = await Promise.all([
-      apiFetch('banquetera'),
-      apiFetch('pagos'),
-    ]);
-    if (banq && !banq.error) {
-      setCached(BANQ_CACHE_KEY, banq);
-      applyBanq(banq);
-    }
-    const data = pagos || [];
-    setCached(PAGOS_CACHE_KEY, data);
-    applyEstAdjustments(data);  // reemplaza referenciales por pagos reales en BRUTO
-    renderPanel(data);
-  } catch(e) {
-    if (!cachedPagos) {
-      const card = document.getElementById('pagos-card');
-      if (card) card.innerHTML = `<p style="color:var(--fg-muted);font-size:13px;padding:8px 0">
-        No se pudieron cargar los pagos. <a href="pagos.html" style="color:var(--accent-fg)">Ir a pagos →</a>
-      </p>`;
+function renderGuests() {
+  const q   = searchEl.value.trim().toLowerCase();
+  const all = guests[current] || [];
+  let list  = subfilter === 'all' ? all
+    : subfilter === 'Riedel Palma' ? all.filter(g => !g.g || g.g === 'Riedel Palma')
+    : all.filter(g => g.g === subfilter);
+  if (tipoFilter !== 'all') {
+    if (tipoFilter === 'otro') {
+      list = list.filter(g => !g.tipo || (g.tipo.trim() !== 'Full' && g.tipo.trim() !== 'Fiesta'));
+    } else {
+      list = list.filter(g => (g.tipo || '').trim() === tipoFilter);
     }
   }
+  if (q) list = list.filter(g => g.n.toLowerCase().includes(q));
+
+  const count = all.length;
+  const shown = list.length;
+  const total = (guests.riedel||[]).length + (guests.chico||[]).length + (guests.solis||[]).length;
+
+  document.getElementById('subtitle').textContent =
+    `${total} en total · ${count} en ${LABELS[current]}${q || subfilter!=='all' ? ` · mostrando ${shown}` : ''}`;
+
+  if (!list.length) {
+    root.innerHTML = `<p style="color:var(--fg-muted);padding:20px 0;font-size:13px">Sin resultados.</p>`;
+    return;
+  }
+
+  root.innerHTML = `<div class="guest-grid">
+    ${list.map(g => `
+      <div class="guest-item" data-id="${g.id || ''}">
+        <span class="guest-name">${g.n}</span>
+        ${g.tipo ? `<span class="guest-tipo">${g.tipo === '(A)' ? 'Acompañante' : g.tipo}</span>` : ''}
+        ${g.g    ? `<span class="guest-tag">${g.g}</span>` : ''}
+        <button class="btn-delete-guest" title="Eliminar invitado"
+                onclick="deleteGuest('${(g.id||'').toString().replace(/'/g,"\\'")}', '${g.n.replace(/'/g,"\\'")}', this)">✕</button>
+      </div>
+    `).join('')}
+  </div>`;
 }
 
-// Delegated listener para botones de editar pago (evita problemas con comillas en onclick inline)
-root.addEventListener('click', e => {
-  const btn = e.target.closest('.btn-edit-pago');
-  if (!btn) return;
-  editarPago(btn.dataset.id, btn.dataset.familia, btn.dataset.concepto, parseFloat(btn.dataset.monto));
-});
+window.setFamily = (k) => {
+  current = k; subfilter = 'all'; tipoFilter = 'all'; searchEl.value = '';
+  renderTabs(); renderSubfilters(); renderTipoFilters(); renderGuests();
+};
+window.setSub = (s) => {
+  subfilter = s; renderSubfilters(); renderTipoFilters(); renderGuests();
+};
+window.setTipo = (t) => {
+  tipoFilter = t; renderTipoFilters(); renderGuests();
+};
+searchEl.addEventListener('input', renderGuests);
 
-window.refrescar = async function() {
-  const btn = document.getElementById('btn-refresh');
-  if (btn) { btn.textContent = '⏳ Cargando…'; btn.disabled = true; }
-  try { localStorage.removeItem(PAGOS_CACHE_KEY); } catch(e) {}
-  try { localStorage.removeItem(BANQ_CACHE_KEY); } catch(e) {}
-  await render();
-  if (btn) { btn.innerHTML = '🔄 Actualizar'; btn.disabled = false; }
+// ── Sistema undo para borrado ─────────────────────────────────
+let _undoTimer   = null;
+let _undoToastEl = null;
+
+function clearUndoToast() {
+  if (_undoToastEl) { _undoToastEl.remove(); _undoToastEl = null; }
+  if (_undoTimer)   { clearTimeout(_undoTimer); _undoTimer = null; }
+}
+
+function showUndoToast(name, onUndo, onCommit) {
+  clearUndoToast();
+
+  const el = document.createElement('div');
+  el.style.cssText = `
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:var(--fg);color:var(--bg);
+    padding:10px 16px;border-radius:10px;
+    font-size:13px;display:flex;align-items:center;gap:12px;
+    box-shadow:0 4px 20px rgba(0,0,0,.25);z-index:9999;
+    white-space:nowrap;animation:fadeIn .2s ease`;
+  el.innerHTML = `
+    <span>${name} eliminado/a</span>
+    <button style="background:none;border:none;color:var(--accent-fg,#b59a6a);
+      font-weight:700;font-size:13px;cursor:pointer;padding:0;line-height:1">
+      Deshacer
+    </button>
+    <span id="undo-countdown" style="opacity:.5;font-size:12px;min-width:16px;text-align:right">5</span>`;
+
+  document.body.appendChild(el);
+  _undoToastEl = el;
+
+  el.querySelector('button').addEventListener('click', () => {
+    clearUndoToast();
+    onUndo();
+  });
+
+  let secs = 5;
+  const countEl = el.querySelector('#undo-countdown');
+  const tick = setInterval(() => {
+    secs--;
+    if (countEl) countEl.textContent = secs;
+    if (secs <= 0) { clearInterval(tick); }
+  }, 1000);
+
+  _undoTimer = setTimeout(() => {
+    clearInterval(tick);
+    if (_undoToastEl === el) { el.remove(); _undoToastEl = null; _undoTimer = null; }
+    onCommit();
+  }, 5000);
+}
+
+window.deleteGuest = async (id, name, btn) => {
+  if (!id) { toast('Este invitado no tiene ID — no se puede borrar desde aquí.', false); return; }
+
+  // Guardar copia del invitado para poder revertir en memoria
+  let deletedEntry = null;
+  let deletedKey   = null;
+  for (const k of ['riedel','chico','solis']) {
+    const idx = (guests[k] || []).findIndex(g => String(g.id) === String(id));
+    if (idx !== -1) {
+      deletedEntry = guests[k][idx];
+      deletedKey   = k;
+      guests[k].splice(idx, 1);
+      break;
+    }
+  }
+
+  renderTabs();
+  renderGuests();
+
+  showUndoToast(
+    name,
+    // onUndo: devolver al estado local
+    () => {
+      if (deletedEntry && deletedKey) {
+        guests[deletedKey].push(deletedEntry);
+        guests[deletedKey].sort((a, b) => a.n.localeCompare(b.n, 'es'));
+      }
+      renderChart();
+      renderTabs();
+      renderGuests();
+      toast(`${name} restaurado/a ✓`);
+    },
+    // onCommit: recién ahora borrar en el servidor
+    async () => {
+      try {
+        await apiPost({ action: 'deleteGuest', id });
+      } catch(e) {
+        // Si falló el server, restaurar localmente
+        if (deletedEntry && deletedKey) guests[deletedKey].push(deletedEntry);
+        toast(`Error al eliminar: ${e.message}`, false);
+        renderChart(); renderTabs(); renderGuests();
+      }
+    }
+  );
 };
 
-render();
+// ── Modal agregar ────────────────────────────────────────────
+const overlay = document.getElementById('modal-overlay');
+window.openModal = () => {
+  overlay.style.display = 'flex';
+  document.getElementById('f-nombre').focus();
+};
+window.closeModal = () => {
+  overlay.style.display = 'none';
+  document.getElementById('add-form').reset();
+};
+overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+window.submitGuest = async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Agregando…';
+  const data = {
+    nombre:     document.getElementById('f-nombre').value.trim(),
+    apellido:   document.getElementById('f-apellido').value.trim(),
+    invitacion: document.getElementById('f-invitacion').value,
+    tipo:       document.getElementById('f-tipo').value,
+  };
+  try {
+    const res = await apiPost({ action: 'addGuest', data });
+    if (!res.ok) throw new Error(res.error || 'Error al agregar');
+    // Agregar al estado local para no recargar
+    const inv = data.invitacion.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+    const nombreCompleto = [data.nombre, data.apellido].filter(Boolean).join(' ');
+    const entry = { id: res.id, n: nombreCompleto, g: '', tipo: data.tipo };
+    if (inv === 'riedel palma' || inv === 'riedel') {
+      guests.riedel.push(entry);
+    } else if (inv === 'anto') {
+      guests.riedel.push({ ...entry, g: 'Anto' });
+    } else if (inv === 'chico') {
+      guests.chico.push(entry);
+    } else if (inv === 'solis') {
+      guests.solis.push({ ...entry, g: 'Solís' });
+    } else if (inv === 'soto') {
+      guests.solis.push({ ...entry, g: 'Soto' });
+    }
+    // Ir a la familia correcta
+    if (['riedel palma','riedel','anto'].includes(inv)) current = 'riedel';
+    else if (inv === 'chico') current = 'chico';
+    else current = 'solis';
+    closeModal();
+    toast(`${nombreCompleto} agregado/a ✓`);
+    renderTabs(); renderSubfilters(); renderGuests();
+  } catch(err) {
+    toast(err.message, false);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Agregar';
+  }
+};
+
+load();
 </script>
 </body>
 </html>
