@@ -428,6 +428,10 @@ const ROWS = [
 const MAX_CAP = 10;
 const NOVIOS_CAP = 12;
 
+// Set de nombres de mesa válidos — para ignorar valores espurios en g.mesa
+// (se define aquí para que esté disponible en buildMesaMap, updateSubtitle y renderAllGuests)
+const VALID_MESAS = new Set(['Novios', ...ROWS.map(([n]) => 'Mesa ' + n)]);
+
 // ── Estado ────────────────────────────────────────────────────
 let allGuests = [];   // [{id, n, mesa}]  — lista plana
 let mesaMap   = {};   // { 'Mesa 12': [guest, ...] }
@@ -456,14 +460,16 @@ function buildMesaMap() {
   mesaMap = { 'Novios': [] };
   ROWS.forEach(([n]) => { mesaMap['Mesa ' + n] = []; });
   allGuests.forEach(g => {
-    if (g.mesa && mesaMap[g.mesa] !== undefined) {
+    // Solo mesas válidas — ignora "Enviado", "No enviado" u otros valores espurios
+    if (g.mesa && VALID_MESAS.has(g.mesa) && mesaMap[g.mesa] !== undefined) {
       mesaMap[g.mesa].push(g);
     }
   });
 }
 
 function updateSubtitle() {
-  const asignados = allGuests.filter(g => g.mesa && g.mesa.trim() !== '').length;
+  // Solo cuenta asignaciones a mesas reales (ignora valores espurios como "Enviado")
+  const asignados = allGuests.filter(g => VALID_MESAS && VALID_MESAS.has(g.mesa)).length;
   const total = allGuests.length;
   document.getElementById('subtitle').textContent =
     `${asignados} de ${total} invitados asignados a mesa`;
@@ -608,10 +614,11 @@ window.renderAllGuests = function() {
   const isFull = inThis.size >= cap;
   const el     = document.getElementById('panel-all-guests');
 
+  // Solo invitados "full" — excluimos acompañantes (A)
+  let list = allGuests.filter(g => !g.n.includes('(A)'));
+
   // Filtrar por búsqueda
-  let list = q
-    ? allGuests.filter(g => g.n.toLowerCase().includes(q))
-    : allGuests;
+  if (q) list = list.filter(g => g.n.toLowerCase().includes(q));
 
   if (!list.length) {
     el.innerHTML = '<p style="font-size:12px;color:#aaa;margin:4px 0;font-style:italic">Sin resultados.</p>';
@@ -622,19 +629,21 @@ window.renderAllGuests = function() {
   list = [...list].sort((a, b) => {
     const aIn    = inThis.has(String(a.id));
     const bIn    = inThis.has(String(b.id));
-    const aFree  = !a.mesa || a.mesa.trim() === '';
-    const bFree  = !b.mesa || b.mesa.trim() === '';
-    if (aIn && !bIn)   return -1;
-    if (!aIn && bIn)   return 1;
-    if (aFree && !bFree) return -1;
-    if (!aFree && bFree) return 1;
+    const aMesa  = VALID_MESAS.has(a.mesa) ? a.mesa : '';
+    const bMesa  = VALID_MESAS.has(b.mesa) ? b.mesa : '';
+    if (aIn && !bIn)       return -1;
+    if (!aIn && bIn)       return 1;
+    if (!aMesa && bMesa)   return -1;
+    if (aMesa && !bMesa)   return 1;
     return a.n.localeCompare(b.n, 'es');
   });
 
-  el.innerHTML = list.slice(0, 150).map(g => {
+  // Sin límite — mostramos TODOS
+  el.innerHTML = list.map(g => {
     const gid     = String(g.id);
     const checked = inThis.has(gid);
-    const inOther = !checked && g.mesa && g.mesa.trim() !== '';
+    const mesaVal = VALID_MESAS.has(g.mesa) ? g.mesa : ''; // ignora valores espurios
+    const inOther = !checked && mesaVal !== '';
     const disabled = inOther || (!checked && isFull);
     const cls     = `guest-check-item${inOther ? ' in-other' : ''}${!inOther && !checked && isFull ? ' is-full' : ''}`;
 
@@ -642,7 +651,7 @@ window.renderAllGuests = function() {
       <input type="checkbox" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}
         onchange="toggleGuest('${gid}')">
       <span class="guest-check-name">${g.n}</span>
-      ${inOther ? `<span class="guest-other-mesa">${g.mesa}</span>` : ''}
+      ${inOther ? `<span class="guest-other-mesa">${mesaVal}</span>` : ''}
     </label>`;
   }).join('');
 };
