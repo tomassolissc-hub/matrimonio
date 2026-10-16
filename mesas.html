@@ -442,14 +442,10 @@ let activeMesa = null;
 // ── Cargar datos ──────────────────────────────────────────────
 async function load() {
   try {
-    // Usamos 'guests' que siempre está disponible y ya incluye el campo mesa
-    const data = await apiFetch('guests');
-    // data = { riedel:[...], chico:[...], solis:[...] } — aplanamos
-    allGuests = [
-      ...(data.riedel || []),
-      ...(data.chico  || []),
-      ...(data.solis  || []),
-    ];
+    // Usamos 'mesas' — endpoint liviano ({id, n, mesa}), caché independiente
+    // No toca guests_v3, así invitados.html no se ve afectado
+    const data = await apiFetch('mesas');
+    allGuests = data.guests || [];
     buildMesaMap();
     renderAllTables();
     updateSubtitle();
