@@ -200,30 +200,45 @@
   font-size: 13px;
   margin-bottom: 10px;
 }
-.available-list { max-height: 280px; overflow-y: auto; }
-.available-item {
+.available-list { max-height: 320px; overflow-y: auto; }
+
+/* ── Checkbox guest list ──────────────────────────────────── */
+.guest-check-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 0;
+  gap: 10px;
+  padding: 9px 6px 9px 2px;
   border-bottom: 1px solid #eee;
   font-size: 13px;
   color: #222;
   cursor: pointer;
-  gap: 8px;
+  user-select: none;
   transition: background .1s;
+  border-radius: 4px;
 }
-.available-item:last-child { border-bottom: none; }
-.available-item:hover { background: #f5f5f5; }
-.btn-add-guest {
-  background: none; border: none; cursor: pointer;
-  color: var(--accent-fg, #b59a6a);
-  font-size: 18px; font-weight: 700; line-height: 1;
-  padding: 0 2px; flex-shrink: 0;
+.guest-check-item:last-child { border-bottom: none; }
+.guest-check-item:hover { background: #f5f5f5; }
+.guest-check-item input[type="checkbox"] {
+  width: 16px; height: 16px; flex-shrink: 0;
+  cursor: pointer; accent-color: #3a9e6e;
 }
-.available-meta {
-  font-size: 11px;
-  color: var(--fg-muted);
+.guest-check-name { flex: 1; }
+.guest-other-mesa {
+  font-size: 10px;
+  color: #aaa;
+  background: #f0f0f0;
+  border-radius: 4px;
+  padding: 2px 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.guest-check-item.in-other {
+  opacity: .5;
+  cursor: default;
+}
+.guest-check-item.is-full {
+  opacity: .45;
+  cursor: not-allowed;
 }
 
 /* ── Legend ───────────────────────────────────────────────── */
@@ -369,14 +384,14 @@
   </div>
   <div class="panel-body">
     <div class="assigned-list">
-      <p class="panel-section-label">En esta mesa</p>
+      <p class="panel-section-label">En esta mesa <span id="panel-cap-label" style="font-weight:400;text-transform:none;letter-spacing:0"></span></p>
       <div id="panel-assigned"></div>
     </div>
-    <div>
-      <p class="panel-section-label">Agregar invitado</p>
+    <div style="margin-top:16px">
+      <p class="panel-section-label">Todos los invitados</p>
       <input class="search-available" id="panel-search" type="search"
-             placeholder="Buscar invitado…" autocomplete="off" oninput="renderAvailable()">
-      <div class="available-list" id="panel-available"></div>
+             placeholder="Buscar por nombre…" autocomplete="off" oninput="renderAllGuests()">
+      <div class="available-list" id="panel-all-guests"></div>
     </div>
   </div>
 </div>
@@ -421,8 +436,14 @@ let activeMesa = null;
 // ── Cargar datos ──────────────────────────────────────────────
 async function load() {
   try {
-    const data = await apiFetch('mesas');
-    allGuests = data.guests || [];
+    // Usamos 'guests' que siempre está disponible y ya incluye el campo mesa
+    const data = await apiFetch('guests');
+    // data = { riedel:[...], chico:[...], solis:[...] } — aplanamos
+    allGuests = [
+      ...(data.riedel || []),
+      ...(data.chico  || []),
+      ...(data.solis  || []),
+    ];
     buildMesaMap();
     renderAllTables();
     updateSubtitle();
@@ -442,7 +463,7 @@ function buildMesaMap() {
 }
 
 function updateSubtitle() {
-  const asignados = allGuests.filter(g => g.mesa).length;
+  const asignados = allGuests.filter(g => g.mesa && g.mesa.trim() !== '').length;
   const total = allGuests.length;
   document.getElementById('subtitle').textContent =
     `${asignados} de ${total} invitados asignados a mesa`;
@@ -554,7 +575,7 @@ window.openPanel = function(nombre) {
   document.getElementById('panel-capacity').textContent = `${cnt}/${cap} personas`;
   document.getElementById('panel-search').value = '';
   renderAssigned();
-  renderAvailable();
+  renderAllGuests();
   panel.classList.add('open');
   overlay.classList.add('open');
 };
@@ -579,34 +600,80 @@ function renderAssigned() {
     </div>`).join('');
 }
 
-window.renderAvailable = function() {
-  const q   = document.getElementById('panel-search').value.trim().toLowerCase();
-  const cap = activeMesa === 'Novios' ? NOVIOS_CAP : MAX_CAP;
-  const cnt = (mesaMap[activeMesa] || []).length;
-  const el  = document.getElementById('panel-available');
+// Nueva lista unificada con checkboxes
+window.renderAllGuests = function() {
+  const q      = document.getElementById('panel-search').value.trim().toLowerCase();
+  const cap    = activeMesa === 'Novios' ? NOVIOS_CAP : MAX_CAP;
+  const inThis = new Set((mesaMap[activeMesa] || []).map(g => String(g.id)));
+  const isFull = inThis.size >= cap;
+  const el     = document.getElementById('panel-all-guests');
 
-  if (cnt >= cap) {
-    el.innerHTML = '<p style="font-size:12px;color:var(--fg-muted);margin:0">Mesa completa.</p>';
+  // Filtrar por búsqueda
+  let list = q
+    ? allGuests.filter(g => g.n.toLowerCase().includes(q))
+    : allGuests;
+
+  if (!list.length) {
+    el.innerHTML = '<p style="font-size:12px;color:#aaa;margin:4px 0;font-style:italic">Sin resultados.</p>';
     return;
   }
 
-  // Invitados sin mesa (o con mesa diferente a la actual)
-  let available = allGuests.filter(g => !g.mesa || g.mesa === '');
-  if (q) available = available.filter(g => g.n.toLowerCase().includes(q));
+  // Ordenar: primero los de esta mesa, luego sin mesa, luego con otra mesa
+  list = [...list].sort((a, b) => {
+    const aIn    = inThis.has(String(a.id));
+    const bIn    = inThis.has(String(b.id));
+    const aFree  = !a.mesa || a.mesa.trim() === '';
+    const bFree  = !b.mesa || b.mesa.trim() === '';
+    if (aIn && !bIn)   return -1;
+    if (!aIn && bIn)   return 1;
+    if (aFree && !bFree) return -1;
+    if (!aFree && bFree) return 1;
+    return a.n.localeCompare(b.n, 'es');
+  });
 
-  if (!available.length) {
-    el.innerHTML = '<p style="font-size:12px;color:var(--fg-faint);margin:0;font-style:italic">Sin resultados.</p>';
-    return;
-  }
+  el.innerHTML = list.slice(0, 150).map(g => {
+    const gid     = String(g.id);
+    const checked = inThis.has(gid);
+    const inOther = !checked && g.mesa && g.mesa.trim() !== '';
+    const disabled = inOther || (!checked && isFull);
+    const cls     = `guest-check-item${inOther ? ' in-other' : ''}${!inOther && !checked && isFull ? ' is-full' : ''}`;
 
-  el.innerHTML = available.slice(0, 80).map(g => `
-    <div class="available-item" onclick="addGuest('${g.id}')">
-      <span>${g.n}</span>
-      <button class="btn-add-guest" title="Agregar a ${activeMesa}">+</button>
-    </div>`).join('');
+    return `<label class="${cls}">
+      <input type="checkbox" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}
+        onchange="toggleGuest('${gid}')">
+      <span class="guest-check-name">${g.n}</span>
+      ${inOther ? `<span class="guest-other-mesa">${g.mesa}</span>` : ''}
+    </label>`;
+  }).join('');
 };
 
-// ── Asignar / quitar ──────────────────────────────────────────
+// ── Helpers de render del panel ───────────────────────────────
+function syncPanelCapacity() {
+  const cap = activeMesa === 'Novios' ? NOVIOS_CAP : MAX_CAP;
+  const cnt = (mesaMap[activeMesa] || []).length;
+  document.getElementById('panel-capacity').textContent = `${cnt}/${cap} personas`;
+}
+
+function refreshPanel() {
+  syncPanelCapacity();
+  renderAssigned();
+  renderAllGuests();
+  refreshTable(activeMesa);
+  updateSubtitle();
+}
+
+// ── Toggle: marcar/desmarcar invitado con checkbox ────────────
+window.toggleGuest = async function(id) {
+  const g = allGuests.find(x => String(x.id) === String(id));
+  if (!g) return;
+  if (g.mesa === activeMesa) {
+    await removeGuest(id);
+  } else {
+    await addGuest(id);
+  }
+};
+
+// ── Asignar ───────────────────────────────────────────────────
 window.addGuest = async function(id) {
   const g = allGuests.find(x => String(x.id) === String(id));
   if (!g) return;
@@ -620,50 +687,38 @@ window.addGuest = async function(id) {
   g.mesa = activeMesa;
   mesaMap[activeMesa] = mesaMap[activeMesa] || [];
   mesaMap[activeMesa].push(g);
-
-  const cnt = mesaMap[activeMesa].length;
-  document.getElementById('panel-capacity').textContent = `${cnt}/${cap} personas`;
-  renderAssigned();
-  renderAvailable();
-  refreshTable(activeMesa);
-  updateSubtitle();
+  refreshPanel();
 
   try {
     await apiPost({ action: 'asignarMesa', guestId: id, mesa: activeMesa });
+    toast(`${g.n} asignado a ${activeMesa}`);
   } catch(e) {
-    // Revertir
     g.mesa = '';
     mesaMap[activeMesa] = mesaMap[activeMesa].filter(x => String(x.id) !== String(id));
-    renderAssigned(); renderAvailable(); refreshTable(activeMesa); updateSubtitle();
+    refreshPanel();
     toast('Error: ' + e.message, false);
   }
 };
 
+// ── Quitar ────────────────────────────────────────────────────
 window.removeGuest = async function(id) {
   const g = allGuests.find(x => String(x.id) === String(id));
   if (!g) return;
 
   const prevMesa = g.mesa;
-  const cap = activeMesa === 'Novios' ? NOVIOS_CAP : MAX_CAP;
 
   // Optimistic update
   g.mesa = '';
   mesaMap[activeMesa] = (mesaMap[activeMesa] || []).filter(x => String(x.id) !== String(id));
-
-  const cnt = mesaMap[activeMesa].length;
-  document.getElementById('panel-capacity').textContent = `${cnt}/${cap} personas`;
-  renderAssigned();
-  renderAvailable();
-  refreshTable(activeMesa);
-  updateSubtitle();
+  refreshPanel();
 
   try {
     await apiPost({ action: 'desasignarMesa', guestId: id });
+    toast(`${g.n} quitado de ${prevMesa}`);
   } catch(e) {
-    // Revertir
     g.mesa = prevMesa;
     mesaMap[activeMesa].push(g);
-    renderAssigned(); renderAvailable(); refreshTable(activeMesa); updateSubtitle();
+    refreshPanel();
     toast('Error: ' + e.message, false);
   }
 };
