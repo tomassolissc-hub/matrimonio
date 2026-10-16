@@ -157,7 +157,9 @@
   flex-shrink: 0;
 }
 
-.panel-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+.panel-body { flex: 1; overflow-y: hidden; padding: 16px 20px; display: flex; flex-direction: column; }
+.panel-body .assigned-list { flex-shrink: 0; }
+.panel-body > div:last-child { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 
 .panel-section-label {
   font-size: 11px;
@@ -200,7 +202,7 @@
   font-size: 13px;
   margin-bottom: 10px;
 }
-.available-list { max-height: 320px; overflow-y: auto; }
+.available-list { flex: 1; overflow-y: auto; }
 
 /* ── Checkbox guest list ──────────────────────────────────── */
 .guest-check-item {
@@ -606,7 +608,7 @@ function renderAssigned() {
     </div>`).join('');
 }
 
-// Nueva lista unificada con checkboxes
+// Renderiza la lista completa — solo al abrir panel o al cambiar búsqueda
 window.renderAllGuests = function() {
   const q      = document.getElementById('panel-search').value.trim().toLowerCase();
   const cap    = activeMesa === 'Novios' ? NOVIOS_CAP : MAX_CAP;
@@ -614,10 +616,8 @@ window.renderAllGuests = function() {
   const isFull = inThis.size >= cap;
   const el     = document.getElementById('panel-all-guests');
 
-  // Solo invitados "full" — excluimos acompañantes (A)
+  // Solo invitados full (sin acompañantes "(A)")
   let list = allGuests.filter(g => !g.n.includes('(A)'));
-
-  // Filtrar por búsqueda
   if (q) list = list.filter(g => g.n.toLowerCase().includes(q));
 
   if (!list.length) {
@@ -625,36 +625,60 @@ window.renderAllGuests = function() {
     return;
   }
 
-  // Ordenar: primero los de esta mesa, luego sin mesa, luego con otra mesa
+  // Orden estable: asignados a esta mesa primero, luego libres, luego con otra mesa — y alfabético dentro de cada grupo
   list = [...list].sort((a, b) => {
-    const aIn    = inThis.has(String(a.id));
-    const bIn    = inThis.has(String(b.id));
-    const aMesa  = VALID_MESAS.has(a.mesa) ? a.mesa : '';
-    const bMesa  = VALID_MESAS.has(b.mesa) ? b.mesa : '';
-    if (aIn && !bIn)       return -1;
-    if (!aIn && bIn)       return 1;
-    if (!aMesa && bMesa)   return -1;
-    if (aMesa && !bMesa)   return 1;
+    const aIn   = inThis.has(String(a.id));
+    const bIn   = inThis.has(String(b.id));
+    const aMesa = VALID_MESAS.has(a.mesa) ? a.mesa : '';
+    const bMesa = VALID_MESAS.has(b.mesa) ? b.mesa : '';
+    if (aIn && !bIn)     return -1;
+    if (!aIn && bIn)     return 1;
+    if (!aMesa && bMesa) return -1;
+    if (aMesa && !bMesa) return 1;
     return a.n.localeCompare(b.n, 'es');
   });
 
-  // Sin límite — mostramos TODOS
   el.innerHTML = list.map(g => {
     const gid     = String(g.id);
     const checked = inThis.has(gid);
-    const mesaVal = VALID_MESAS.has(g.mesa) ? g.mesa : ''; // ignora valores espurios
+    const mesaVal = VALID_MESAS.has(g.mesa) ? g.mesa : '';
     const inOther = !checked && mesaVal !== '';
     const disabled = inOther || (!checked && isFull);
     const cls     = `guest-check-item${inOther ? ' in-other' : ''}${!inOther && !checked && isFull ? ' is-full' : ''}`;
 
     return `<label class="${cls}">
-      <input type="checkbox" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}
-        onchange="toggleGuest('${gid}')">
+      <input type="checkbox" data-gid="${gid}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}
+        onclick="event.preventDefault();event.stopPropagation();if(!this.disabled)toggleGuest('${gid}')">
       <span class="guest-check-name">${g.n}</span>
       ${inOther ? `<span class="guest-other-mesa">${mesaVal}</span>` : ''}
     </label>`;
   }).join('');
 };
+
+// Actualiza solo los checkboxes en el DOM existente — sin re-renderizar la lista
+function patchGuestCheckboxes() {
+  const cap    = activeMesa === 'Novios' ? NOVIOS_CAP : MAX_CAP;
+  const inThis = new Set((mesaMap[activeMesa] || []).map(g => String(g.id)));
+  const isFull = inThis.size >= cap;
+
+  document.querySelectorAll('#panel-all-guests input[data-gid]').forEach(cb => {
+    const gid     = cb.dataset.gid;
+    const g       = allGuests.find(x => String(x.id) === gid);
+    if (!g) return;
+    const checked = inThis.has(gid);
+    const mesaVal = VALID_MESAS.has(g.mesa) ? g.mesa : '';
+    const inOther = !checked && mesaVal !== '';
+    const disabled = inOther || (!checked && isFull);
+    const label   = cb.closest('.guest-check-item');
+
+    cb.checked  = checked;
+    cb.disabled = disabled;
+    if (label) {
+      label.classList.toggle('in-other', inOther);
+      label.classList.toggle('is-full', !inOther && !checked && isFull);
+    }
+  });
+}
 
 // ── Helpers de render del panel ───────────────────────────────
 function syncPanelCapacity() {
@@ -666,7 +690,7 @@ function syncPanelCapacity() {
 function refreshPanel() {
   syncPanelCapacity();
   renderAssigned();
-  renderAllGuests();
+  patchGuestCheckboxes(); // solo actualiza los checks, no re-renderiza la lista
   refreshTable(activeMesa);
   updateSubtitle();
 }
