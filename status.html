@@ -9,12 +9,12 @@
 /* ── Global stats ─────────────────────────────── */
 .global-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   margin: 18px 0 24px;
 }
-@media (max-width: 600px) {
-  .global-stats { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 500px) {
+  .global-stats { grid-template-columns: repeat(1, 1fr); }
 }
 .stat-tile {
   background: var(--card-bg, var(--bg));
@@ -365,7 +365,7 @@ function renderGlobalStats() {
   const all = groups.flatMap(g => g.guests);
   const s   = getStats(all);
   document.getElementById('subtitle').textContent =
-    `${s.enviadas} de ${s.total} invitaciones enviadas · ${s.si} confirmaron · ${s.no} no van`;
+    `${s.enviadas} de ${s.total} invitaciones enviadas · ${s.si} confirmaron · ${s.pendiente} sin respuesta`;
 
   const el = document.getElementById('global-stats');
   el.innerHTML = `
@@ -375,11 +375,7 @@ function renderGlobalStats() {
     </div>
     <div class="stat-tile tile-si">
       <div class="stat-num">${s.si}</div>
-      <div class="stat-lbl">Confirmaron sí</div>
-    </div>
-    <div class="stat-tile tile-no">
-      <div class="stat-num">${s.no}</div>
-      <div class="stat-lbl">No van</div>
+      <div class="stat-lbl">Confirmaron</div>
     </div>
     <div class="stat-tile tile-pend">
       <div class="stat-num">${s.pendiente}</div>
@@ -445,11 +441,9 @@ function renderGuestRow(g, groupKey) {
       </div>
       <div class="conf-btns" id="conf-${g.id}">
         <button class="conf-btn${g.conf === 'si' ? ' active-si' : ''}"
-                onclick="setConf(${g.id}, 'si', '${groupKey}')">✓ Sí</button>
-        <button class="conf-btn${g.conf === 'no' ? ' active-no' : ''}"
-                onclick="setConf(${g.id}, 'no', '${groupKey}')">✗ No</button>
+                onclick="setConf(${g.id}, 'si', '${groupKey}')">✓ Confirmó</button>
         <button class="conf-btn${!g.conf ? ' active-pend' : ''}"
-                onclick="setConf(${g.id}, '', '${groupKey}')">—</button>
+                onclick="setConf(${g.id}, '', '${groupKey}')">— No confirmado</button>
       </div>
     </div>
   `;
@@ -519,8 +513,7 @@ function updateConfButtons(id, valor) {
   if (!c) return;
   const btns = c.querySelectorAll('.conf-btn');
   btns[0].className = 'conf-btn' + (valor === 'si' ? ' active-si'   : '');
-  btns[1].className = 'conf-btn' + (valor === 'no' ? ' active-no'   : '');
-  btns[2].className = 'conf-btn' + (!valor          ? ' active-pend' : '');
+  btns[1].className = 'conf-btn' + (!valor          ? ' active-pend' : '');
 }
 
 function updateGroupHeader(key) {
