@@ -267,6 +267,7 @@
       <li><a href="index.html">Panel</a></li>
       <li><a href="gastos.html">Gastos</a></li>
       <li><a href="invitados.html">Invitados</a></li>
+      <li><a href="status.html">Invitaciones</a></li>
       <li><a href="mesas.html">Mesas</a></li>
       <li><a href="pagos.html">Pagos</a></li>
       <li><a href="familia.html">Mi resumen</a></li>
@@ -399,7 +400,7 @@
 </div>
 
 <script type="module">
-import { apiFetch, apiPost, initTheme, highlightNav, toast } from './api.js';
+import { apiFetch, apiPostSilent, initTheme, highlightNav, toast } from './api.js';
 
 initTheme();
 highlightNav();
@@ -719,7 +720,7 @@ window.addGuest = async function(id) {
   refreshPanel();
 
   try {
-    await apiPost({ action: 'asignarMesa', guestId: id, mesa: activeMesa });
+    await apiPostSilent({ action: 'asignarMesa', guestId: id, mesa: activeMesa });
     toast(`${g.n} asignado a ${activeMesa}`);
   } catch(e) {
     g.mesa = '';
@@ -742,7 +743,7 @@ window.removeGuest = async function(id) {
   refreshPanel();
 
   try {
-    await apiPost({ action: 'desasignarMesa', guestId: id });
+    await apiPostSilent({ action: 'desasignarMesa', guestId: id });
     toast(`${g.n} quitado de ${prevMesa}`);
   } catch(e) {
     g.mesa = prevMesa;
