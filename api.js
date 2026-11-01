@@ -56,7 +56,9 @@ export async function apiFetch(action) {
   }
 }
 
-// ── POST ──────────────────────────────────────────────────────
+// ── POST (con lectura de respuesta) ───────────────────────────
+// Nota: GAS redirige POSTs a script.googleusercontent.com sin headers CORS,
+// así que esto falla en browsers. Usar apiPostSilent para acciones simples.
 export async function apiPost(payload) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 30000); // 30 s para uploads
@@ -72,6 +74,29 @@ export async function apiPost(payload) {
     const data = await res.json();
     if (data && data.error) throw new Error(data.error);
     return data;
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado');
+    throw err;
+  }
+}
+
+// ── POST sin leer respuesta (no-cors) ─────────────────────────
+// Para acciones simples donde solo importa que el servidor ejecute la acción
+// (asignar/desasignar mesa). Evita el error CORS del redirect de GAS.
+export async function apiPostSilent(payload) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    await fetch(GAS_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body:    JSON.stringify(payload),
+      signal:  ctrl.signal,
+      mode:    'no-cors', // no podemos leer la respuesta, pero la acción se ejecuta
+    });
+    clearTimeout(timer);
+    return { ok: true };
   } catch (err) {
     clearTimeout(timer);
     if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado');
