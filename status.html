@@ -223,6 +223,35 @@
 .badge-tipo-full   { background: rgba(181,154,106,.18); color: var(--accent-fg, #b59a6a); }
 .badge-tipo-fiesta { background: rgba(46,125,82,.15);   color: #2e7d52; }
 
+/* ── Buscadores ───────────────────────────────── */
+.search-global-wrap {
+  margin-bottom: 18px;
+}
+.search-group-wrap {
+  padding: 10px 14px 6px;
+  border-bottom: 1px solid var(--border);
+}
+.search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg, var(--bg));
+  color: var(--fg);
+  font-size: 14px;
+  outline: none;
+  transition: border-color .15s;
+}
+.search-input:focus { border-color: var(--accent, #3b82f6); }
+.guest-row.hidden { display: none; }
+.no-results {
+  padding: 14px 16px;
+  color: var(--fg-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
 /* Confirmation buttons */
 .conf-btns {
   display: flex;
@@ -308,6 +337,11 @@
 
   <!-- Resumen global -->
   <div id="global-stats" class="global-stats" hidden></div>
+
+  <!-- Buscador global -->
+  <div class="search-global-wrap">
+    <input type="search" id="search-global" class="search-input" placeholder="🔍 Buscar en todos los grupos…" oninput="filterGlobal(this.value)">
+  </div>
 
   <!-- 4 secciones familiares -->
   <div class="acc-list" id="accordions"></div>
@@ -414,7 +448,11 @@ function renderGroup(group) {
         <div class="acc-progress-bar" id="pbar-${group.key}" style="width:${pct}%"></div>
       </div>
       <div class="acc-body" id="body-${group.key}">
-        <div class="guest-list">
+        <div class="search-group-wrap">
+          <input type="search" class="search-input search-group" placeholder="🔍 Buscar en ${group.label}…"
+                 oninput="filterGroup('${group.key}', this.value)">
+        </div>
+        <div class="guest-list" id="list-${group.key}">
           ${group.guests.map(g => renderGuestRow(g, group.key)).join('')}
         </div>
       </div>
@@ -537,6 +575,69 @@ function updateGroupHeader(key) {
   const mob = sec?.querySelector('.acc-stats-mobile');
   if (mob) mob.textContent = `${s.enviadas}/${group.guests.length} enviadas · ${s.si} sí · ${s.no} no`;
 }
+
+// ── Buscadores ─────────────────────────────────────────────────
+window.filterGlobal = function(q) {
+  const term = q.trim().toLowerCase();
+  // Limpiar buscadores de cada grupo
+  document.querySelectorAll('.search-group').forEach(el => { el.value = ''; });
+  // Mostrar/ocultar filas y expandir grupos con resultados
+  groups.forEach(group => {
+    const rows = document.querySelectorAll(`#list-${group.key} .guest-row`);
+    let visible = 0;
+    rows.forEach(row => {
+      const name = (row.querySelector('.guest-name') || {}).textContent || '';
+      const match = !term || name.toLowerCase().includes(term);
+      row.classList.toggle('hidden', !match);
+      if (match) visible++;
+    });
+    // Auto-expandir si hay resultados, contraer si no hay
+    if (term) {
+      const body  = document.getElementById('body-' + group.key);
+      const arrow = document.getElementById('arrow-' + group.key);
+      if (visible > 0) {
+        body  && body.classList.add('open');
+        arrow && arrow.classList.add('open');
+      } else {
+        body  && body.classList.remove('open');
+        arrow && arrow.classList.remove('open');
+      }
+    }
+    // Mensaje "sin resultados" dentro del grupo
+    const noRes = document.getElementById('nores-' + group.key);
+    if (noRes) noRes.remove();
+    if (term && visible === 0) {
+      const list = document.getElementById('list-' + group.key);
+      if (list) list.insertAdjacentHTML('beforeend', `<div class="no-results" id="nores-${group.key}">Sin resultados</div>`);
+    }
+  });
+};
+
+window.filterGroup = function(key, q) {
+  // Limpiar buscador global
+  const globalInput = document.getElementById('search-global');
+  if (globalInput) globalInput.value = '';
+  // Restaurar visibilidad de otros grupos
+  groups.forEach(g => {
+    if (g.key !== key) document.querySelectorAll(`#list-${g.key} .guest-row`).forEach(r => r.classList.remove('hidden'));
+  });
+
+  const term = q.trim().toLowerCase();
+  const rows = document.querySelectorAll(`#list-${key} .guest-row`);
+  let visible = 0;
+  rows.forEach(row => {
+    const name = (row.querySelector('.guest-name') || {}).textContent || '';
+    const match = !term || name.toLowerCase().includes(term);
+    row.classList.toggle('hidden', !match);
+    if (match) visible++;
+  });
+  const noRes = document.getElementById('nores-' + key);
+  if (noRes) noRes.remove();
+  if (term && visible === 0) {
+    const list = document.getElementById('list-' + key);
+    if (list) list.insertAdjacentHTML('beforeend', `<div class="no-results" id="nores-${key}">Sin resultados</div>`);
+  }
+};
 
 // ── Init ───────────────────────────────────────────────────────
 initTheme();
