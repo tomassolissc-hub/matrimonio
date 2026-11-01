@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Invitaciones — Matrimonio 2026</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* ── Global stats ─────────────────────────────── */
+.global-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin: 18px 0 24px;
+}
+@media (max-width: 600px) {
+  .global-stats { grid-template-columns: repeat(2, 1fr); }
+}
+.stat-tile {
+  background: var(--card-bg, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px 12px;
+  text-align: center;
+}
+.stat-num {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.stat-denom {
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--fg-muted);
+}
+.stat-lbl {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-top: 4px;
+}
+.tile-si  .stat-num { color: #2e7d52; }
+.tile-no  .stat-num { color: #c0392b; }
+.tile-pend .stat-num { color: var(--fg-muted); }
+
+/* ── Accordions ───────────────────────────────── */
+.acc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 32px;
+}
+.acc-section {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--card-bg, var(--bg));
+}
+.acc-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--fg);
+  text-align: left;
+  font-family: inherit;
+  transition: background .15s;
+}
+.acc-header:hover { background: var(--hover-bg, rgba(128,128,128,.07)); }
+.acc-header-left {
+  flex: 1;
+  min-width: 0;
+}
+.acc-title {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+}
+.acc-count {
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+.acc-stats {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+@media (max-width: 600px) {
+  .acc-stats { display: none; }
+}
+.acc-stat {
+  font-size: 12px;
+  color: var(--fg-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dot-env  { background: var(--accent-fg, #b59a6a); }
+.dot-si   { background: #2e7d52; }
+.dot-no   { background: #c0392b; }
+.acc-arrow {
+  font-size: 12px;
+  color: var(--fg-muted);
+  transition: transform .25s;
+  flex-shrink: 0;
+}
+.acc-arrow.open { transform: rotate(180deg); }
+
+/* Progress bar under header */
+.acc-progress {
+  height: 3px;
+  background: var(--border);
+}
+.acc-progress-bar {
+  height: 100%;
+  background: var(--accent-fg, #b59a6a);
+  transition: width .4s ease;
+  min-width: 0;
+}
+
+/* Colored left border per family */
+.grp-r .acc-progress-bar { background: var(--r-color, #b59a6a); }
+.grp-a .acc-progress-bar { background: var(--r-color, #b59a6a); opacity: .7; }
+.grp-c .acc-progress-bar { background: var(--c-color, #2e6db4); }
+.grp-s .acc-progress-bar { background: var(--s-color, #2e7d52); }
+
+/* Collapsible body */
+.acc-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .3s ease;
+}
+.acc-body.open {
+  max-height: 9999px;
+}
+
+/* ── Guest list ───────────────────────────────── */
+.guest-list {
+  border-top: 1px solid var(--border);
+}
+.guest-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+  transition: background .12s;
+}
+.guest-row:last-child { border-bottom: none; }
+.guest-row:hover { background: var(--hover-bg, rgba(128,128,128,.05)); }
+
+/* Checkbox enviado */
+.env-toggle {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.env-toggle input { display: none; }
+.env-box {
+  width: 20px; height: 20px;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: transparent;
+  transition: border-color .15s, background .15s, color .15s;
+}
+.env-toggle input:checked + .env-box {
+  background: var(--accent-fg, #b59a6a);
+  border-color: var(--accent-fg, #b59a6a);
+  color: #fff;
+}
+.env-box::after { content: '✓'; }
+
+/* Guest info */
+.guest-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.guest-name {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.guest-name.is-acomp {
+  font-weight: 400;
+  color: var(--fg-muted);
+  font-style: italic;
+}
+.badge-tipo {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  flex-shrink: 0;
+}
+.badge-tipo-full   { background: rgba(181,154,106,.18); color: var(--accent-fg, #b59a6a); }
+.badge-tipo-fiesta { background: rgba(46,125,82,.15);   color: #2e7d52; }
+
+/* Confirmation buttons */
+.conf-btns {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.conf-btn {
+  font-size: 12px;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+  transition: background .12s, border-color .12s, color .12s;
+  white-space: nowrap;
+}
+.conf-btn:hover { border-color: var(--fg-muted); color: var(--fg); }
+.conf-btn.active-si  { background: rgba(46,125,82,.15);  border-color: #2e7d52; color: #2e7d52; }
+.conf-btn.active-no  { background: rgba(192,57,43,.12);  border-color: #c0392b; color: #c0392b; }
+.conf-btn.active-pend{ background: rgba(128,128,128,.12); border-color: var(--fg-muted); color: var(--fg); }
+
+@media (max-width: 480px) {
+  .conf-btn { padding: 4px 6px; font-size: 11px; }
+  .guest-row { padding: 10px 12px; gap: 8px; }
+}
+
+/* Reload btn */
+.reload-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--fg-muted);
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color .15s, color .15s;
+}
+.reload-btn:hover { border-color: var(--fg-muted); color: var(--fg); }
+
+/* Mobile stats row inside header */
+.acc-stats-mobile {
+  display: none;
+  font-size: 11px;
+  color: var(--fg-muted);
+  margin-top: 2px;
+}
+@media (max-width: 600px) {
+  .acc-stats-mobile { display: block; }
+}
+</style>
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="site-nav-inner">
+    <a class="site-nav-brand" href="index.html">💍 Matrimonio 2026</a>
+    <ul class="site-nav-links">
+      <li><a href="index.html">Panel</a></li>
+      <li><a href="gastos.html">Gastos</a></li>
+      <li><a href="invitados.html">Invitados</a></li>
+      <li><a href="status.html">Invitaciones</a></li>
+      <li><a href="mesas.html">Mesas</a></li>
+      <li><a href="pagos.html">Pagos</a></li>
+      <li><a href="familia.html">Mi resumen</a></li>
+      <li><a href="liquidacion.html"><strong>Liquidación</strong></a></li>
+    </ul>
+    <button class="theme-toggle" id="theme-toggle" aria-label="Cambiar tema">🌙</button>
+  </div>
+</nav>
+
+<main class="page">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:4px">
+    <div>
+      <h1 class="page-title" style="margin-bottom:2px">Estado de invitaciones</h1>
+      <p class="page-subtitle" id="subtitle" style="margin:0">Cargando…</p>
+    </div>
+    <button class="reload-btn" onclick="reload()" style="margin-top:6px">↺ Actualizar</button>
+  </div>
+
+  <!-- Resumen global -->
+  <div id="global-stats" class="global-stats" hidden></div>
+
+  <!-- 4 secciones familiares -->
+  <div class="acc-list" id="accordions"></div>
+</main>
+
+<script type="module">
+import { apiFetch, apiPostSilent, initTheme, highlightNav, toast } from './api.js';
+
+// ── Estado ─────────────────────────────────────────────────────
+let groups = [];
+
+const GROUP_DEFS = [
+  { key: 'riedel', label: 'Riedel Palma', cls: 'grp-r' },
+  { key: 'anto',   label: 'Anto',          cls: 'grp-a' },
+  { key: 'chico',  label: 'Chico',         cls: 'grp-c' },
+  { key: 'solis',  label: 'Solís Soto',    cls: 'grp-s' },
+];
+
+// ── Carga ──────────────────────────────────────────────────────
+async function load(bust) {
+  document.getElementById('subtitle').textContent = 'Cargando…';
+  try {
+    const data = await apiFetch(bust ? 'guests&bust=1' : 'guests');
+    groups = [
+      { ...GROUP_DEFS[0], guests: data.riedel.filter(g => g.g !== 'Anto') },
+      { ...GROUP_DEFS[1], guests: data.riedel.filter(g => g.g === 'Anto') },
+      { ...GROUP_DEFS[2], guests: data.chico },
+      { ...GROUP_DEFS[3], guests: data.solis },
+    ];
+    renderAll();
+  } catch(e) {
+    document.getElementById('subtitle').textContent = 'Error: ' + e.message;
+  }
+}
+
+window.reload = () => load(true);
+
+// ── Stats helper ───────────────────────────────────────────────
+function getStats(guests) {
+  const enviadas  = guests.filter(g => g.enviado).length;
+  const si        = guests.filter(g => g.conf === 'si').length;
+  const no        = guests.filter(g => g.conf === 'no').length;
+  const pendiente = guests.length - si - no;
+  return { total: guests.length, enviadas, si, no, pendiente };
+}
+
+// ── Render ─────────────────────────────────────────────────────
+function renderAll() {
+  renderGlobalStats();
+  const container = document.getElementById('accordions');
+  container.innerHTML = groups.map(renderGroup).join('');
+}
+
+function renderGlobalStats() {
+  const all = groups.flatMap(g => g.guests);
+  const s   = getStats(all);
+  document.getElementById('subtitle').textContent =
+    `${s.enviadas} de ${s.total} invitaciones enviadas · ${s.si} confirmaron · ${s.no} no van`;
+
+  const el = document.getElementById('global-stats');
+  el.innerHTML = `
+    <div class="stat-tile">
+      <div class="stat-num">${s.enviadas}<span class="stat-denom">/${s.total}</span></div>
+      <div class="stat-lbl">Partes enviados</div>
+    </div>
+    <div class="stat-tile tile-si">
+      <div class="stat-num">${s.si}</div>
+      <div class="stat-lbl">Confirmaron sí</div>
+    </div>
+    <div class="stat-tile tile-no">
+      <div class="stat-num">${s.no}</div>
+      <div class="stat-lbl">No van</div>
+    </div>
+    <div class="stat-tile tile-pend">
+      <div class="stat-num">${s.pendiente}</div>
+      <div class="stat-lbl">Sin respuesta</div>
+    </div>
+  `;
+  el.hidden = false;
+}
+
+function renderGroup(group) {
+  const s   = getStats(group.guests);
+  const pct = group.guests.length ? Math.round(s.enviadas / group.guests.length * 100) : 0;
+
+  return `
+    <div class="acc-section ${group.cls}" id="sec-${group.key}">
+      <button class="acc-header" onclick="toggleSection('${group.key}')">
+        <div class="acc-header-left">
+          <span class="acc-title">${group.label}</span>
+          <span class="acc-count">${group.guests.length} personas</span>
+          <span class="acc-stats-mobile">${s.enviadas}/${group.guests.length} enviadas · ${s.si} sí · ${s.no} no</span>
+        </div>
+        <div class="acc-stats">
+          <span class="acc-stat" id="stat-env-${group.key}">
+            <span class="dot dot-env"></span>${s.enviadas}/${group.guests.length} enviadas
+          </span>
+          <span class="acc-stat" id="stat-si-${group.key}">
+            <span class="dot dot-si"></span>${s.si} sí
+          </span>
+          <span class="acc-stat" id="stat-no-${group.key}">
+            <span class="dot dot-no"></span>${s.no} no
+          </span>
+        </div>
+        <span class="acc-arrow" id="arrow-${group.key}">▼</span>
+      </button>
+      <div class="acc-progress">
+        <div class="acc-progress-bar" id="pbar-${group.key}" style="width:${pct}%"></div>
+      </div>
+      <div class="acc-body" id="body-${group.key}">
+        <div class="guest-list">
+          ${group.guests.map(g => renderGuestRow(g, group.key)).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderGuestRow(g, groupKey) {
+  const tipoRaw   = String(g.tipo || '').toLowerCase();
+  const tipoLabel = tipoRaw.includes('full') ? 'Full' : tipoRaw.includes('fiesta') ? 'Fiesta' : g.tipo || '';
+  const tipoCls   = tipoRaw.includes('full') ? 'badge-tipo-full' : 'badge-tipo-fiesta';
+  const isA       = g.n.includes('(A)');
+
+  return `
+    <div class="guest-row" id="row-${g.id}" data-grp="${groupKey}">
+      <label class="env-toggle" title="${g.enviado ? 'Parte enviado ✓' : 'Marcar como enviado'}">
+        <input type="checkbox" ${g.enviado ? 'checked' : ''}
+               onchange="toggleEnviado(${g.id}, this.checked, '${groupKey}')">
+        <span class="env-box"></span>
+      </label>
+      <div class="guest-info">
+        <span class="guest-name${isA ? ' is-acomp' : ''}">${g.n}</span>
+        <span class="badge-tipo ${tipoCls}">${tipoLabel}</span>
+      </div>
+      <div class="conf-btns" id="conf-${g.id}">
+        <button class="conf-btn${g.conf === 'si' ? ' active-si' : ''}"
+                onclick="setConf(${g.id}, 'si', '${groupKey}')">✓ Sí</button>
+        <button class="conf-btn${g.conf === 'no' ? ' active-no' : ''}"
+                onclick="setConf(${g.id}, 'no', '${groupKey}')">✗ No</button>
+        <button class="conf-btn${!g.conf ? ' active-pend' : ''}"
+                onclick="setConf(${g.id}, '', '${groupKey}')">—</button>
+      </div>
+    </div>
+  `;
+}
+
+// ── Interacciones ──────────────────────────────────────────────
+window.toggleSection = function(key) {
+  document.getElementById('body-' + key).classList.toggle('open');
+  document.getElementById('arrow-' + key).classList.toggle('open');
+};
+
+window.toggleEnviado = async function(id, valor, groupKey) {
+  const guest = findGuest(id);
+  if (!guest) return;
+  guest.enviado = valor;
+  updateGroupHeader(groupKey);
+  renderGlobalStats();
+
+  try {
+    await apiPostSilent({ action: 'marcarEnviado', guestId: id, valor });
+  } catch(e) {
+    // Revertir
+    guest.enviado = !valor;
+    const cb = document.querySelector(`#row-${id} input[type=checkbox]`);
+    if (cb) cb.checked = !valor;
+    updateGroupHeader(groupKey);
+    renderGlobalStats();
+    toast('No se pudo guardar', false);
+  }
+};
+
+window.setConf = async function(id, valor, groupKey) {
+  const guest = findGuest(id);
+  if (!guest) return;
+  const prev = guest.conf;
+  if (prev === valor) {
+    // clic en el mismo estado → quitar
+    valor = '';
+  }
+  guest.conf = valor;
+  updateConfButtons(id, valor);
+  updateGroupHeader(groupKey);
+  renderGlobalStats();
+
+  try {
+    await apiPostSilent({ action: 'marcarConfirmacion', guestId: id, valor });
+  } catch(e) {
+    guest.conf = prev;
+    updateConfButtons(id, prev);
+    updateGroupHeader(groupKey);
+    renderGlobalStats();
+    toast('No se pudo guardar', false);
+  }
+};
+
+// ── Helpers ────────────────────────────────────────────────────
+function findGuest(id) {
+  for (const g of groups) {
+    const f = g.guests.find(x => String(x.id) === String(id));
+    if (f) return f;
+  }
+  return null;
+}
+
+function updateConfButtons(id, valor) {
+  const c = document.getElementById('conf-' + id);
+  if (!c) return;
+  const btns = c.querySelectorAll('.conf-btn');
+  btns[0].className = 'conf-btn' + (valor === 'si' ? ' active-si'   : '');
+  btns[1].className = 'conf-btn' + (valor === 'no' ? ' active-no'   : '');
+  btns[2].className = 'conf-btn' + (!valor          ? ' active-pend' : '');
+}
+
+function updateGroupHeader(key) {
+  const group = groups.find(g => g.key === key);
+  if (!group) return;
+  const s   = getStats(group.guests);
+  const pct = group.guests.length ? Math.round(s.enviadas / group.guests.length * 100) : 0;
+
+  const envEl = document.getElementById('stat-env-' + key);
+  const siEl  = document.getElementById('stat-si-'  + key);
+  const noEl  = document.getElementById('stat-no-'  + key);
+  const pbar  = document.getElementById('pbar-'     + key);
+  const sec   = document.getElementById('sec-'      + key);
+
+  if (envEl) envEl.innerHTML = `<span class="dot dot-env"></span>${s.enviadas}/${group.guests.length} enviadas`;
+  if (siEl)  siEl.innerHTML  = `<span class="dot dot-si"></span>${s.si} sí`;
+  if (noEl)  noEl.innerHTML  = `<span class="dot dot-no"></span>${s.no} no`;
+  if (pbar)  pbar.style.width = pct + '%';
+
+  // Mobile stats
+  const mob = sec?.querySelector('.acc-stats-mobile');
+  if (mob) mob.textContent = `${s.enviadas}/${group.guests.length} enviadas · ${s.si} sí · ${s.no} no`;
+}
+
+// ── Init ───────────────────────────────────────────────────────
+initTheme();
+highlightNav();
+load();
+</script>
+</body>
+</html>
